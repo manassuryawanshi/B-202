@@ -135,7 +135,7 @@ export default function QrModal({
     {
       id: 'phonepe',
       name: 'PhonePe',
-      logo: '/logos/phonepe-icon.svg',
+      logo: '/logos/phonepe.svg',
       brandColor: '#5F259F',
       activeBorder: '#5F259F',
       activeBg: 'rgba(95, 37, 159, 0.08)'
@@ -143,7 +143,7 @@ export default function QrModal({
     {
       id: 'gpay',
       name: 'Google Pay',
-      logo: '/logos/gpay-icon.svg',
+      logo: '/logos/gpay.svg',
       brandColor: '#1A73E8',
       activeBorder: '#1A73E8',
       activeBg: 'rgba(26, 115, 232, 0.08)'
@@ -151,15 +151,15 @@ export default function QrModal({
     {
       id: 'paytm',
       name: 'Paytm',
-      logo: '/logos/paytm-icon.svg',
+      logo: '/logos/paytm.svg',
       brandColor: '#002970',
       activeBorder: '#00BAF2',
       activeBg: 'rgba(0, 186, 242, 0.08)'
     },
     {
       id: 'upi',
-      name: 'Other UPI',
-      logo: '/logos/upi-icon.svg',
+      name: 'UPI / Other',
+      logo: '/logos/upi.svg',
       brandColor: '#097939',
       activeBorder: '#097939',
       activeBg: 'rgba(9, 121, 57, 0.08)'
@@ -388,17 +388,30 @@ export default function QrModal({
                     </div>
                   )}
 
-                  {/* Official SVG Logo */}
-                  <img
-                    src={p.logo}
-                    alt={p.name}
+                  {/* Official SVG Logo in High-Contrast Badge */}
+                  <div
                     style={{
-                      width: '32px',
-                      height: '32px',
-                      objectFit: 'contain',
-                      borderRadius: '10px'
+                      width: '100%',
+                      height: '34px',
+                      background: '#FFFFFF',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '3px 6px',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
                     }}
-                  />
+                  >
+                    <img
+                      src={p.logo}
+                      alt={p.name}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '24px',
+                        objectFit: 'contain'
+                      }}
+                    />
+                  </div>
 
                   <span
                     style={{
