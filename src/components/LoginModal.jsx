@@ -79,23 +79,18 @@ export default function LoginModal({
       >
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <div
+          <img
+            src="/apple-touch-icon.png"
+            alt="B-202 App Icon"
             style={{
-              width: '52px',
-              height: '52px',
+              width: '56px',
+              height: '56px',
               borderRadius: '16px',
-              background: 'linear-gradient(180deg, #3A7DFF 0%, #0B57E4 100%)',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
               margin: '0 auto 10px auto',
-              boxShadow: '0 4px 14px rgba(11, 87, 228, 0.35)',
-              border: '1px solid #0849C4'
+              boxShadow: '0 6px 18px rgba(255, 149, 0, 0.28)',
+              display: 'block'
             }}
-          >
-            <MaterialIcon name="lock" size={26} />
-          </div>
+          />
           <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ios-text-primary)' }}>
             Flat B-202 Sign In
           </h2>

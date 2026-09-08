@@ -84,22 +84,18 @@ export default function LoginScreen({ members, onLoginSuccess }) {
       >
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div
+          <img
+            src="/apple-touch-icon.png"
+            alt="B-202 App Icon"
             style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #007AFF 0%, #4338CA 100%)',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              width: '64px',
+              height: '64px',
+              borderRadius: '18px',
               margin: '0 auto 12px auto',
-              boxShadow: '0 6px 16px rgba(0, 122, 255, 0.25)'
+              boxShadow: '0 8px 24px rgba(255, 149, 0, 0.28)',
+              display: 'block'
             }}
-          >
-            <MaterialIcon name="lock" size={28} />
-          </div>
+          />
           <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#1C1E23', letterSpacing: '-0.4px' }}>
             B-202 Skyra Residency
           </h1>

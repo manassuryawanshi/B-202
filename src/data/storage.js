@@ -221,8 +221,8 @@ export const sendBrowserNotification = (title, options = {}) => {
   if (Notification.permission === 'granted') {
     try {
       new Notification(title, {
-        icon: '/icon-192.svg',
-        badge: '/icon-192.svg',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
         ...options
       });
       return true;
