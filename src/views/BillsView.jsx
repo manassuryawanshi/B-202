@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import FlatmateAvatar from '../components/Avatars';
 import confetti from 'canvas-confetti';
 import { playHapticChime } from '../data/storage';
@@ -62,7 +62,7 @@ export default function BillsView({
     const seenRecurring = new Map();
     const deduped = [];
 
-    [...bills].forEach((bill) => {
+    [...(bills || [])].forEach((bill) => {
       const monthKey = (bill.monthYear || '').trim().toLowerCase();
       if (recurringTypes.has(bill.type) && monthKey) {
         const key = `${bill.type}_${monthKey}`;
