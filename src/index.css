@@ -136,10 +136,13 @@ body {
   top: 0;
   z-index: 50;
   background: var(--ios-nav-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--ios-card-border);
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px 16px;
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-bottom: 0.5px solid var(--ios-card-border);
+  padding-top: max(calc(env(safe-area-inset-top, 44px) + 10px), 24px);
+  padding-bottom: 12px;
+  padding-left: 16px;
+  padding-right: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
