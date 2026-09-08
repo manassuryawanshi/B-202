@@ -90,11 +90,12 @@ export default function DirectoryView({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {members.map((member) => {
             const isRentPayee = member.id === 'ujwal' || member.name.toLowerCase().includes('ujw');
+            const isWashingMachinePayee = member.id === 'manas' || member.name.toLowerCase().includes('manas');
             return (
               <div
                 key={member.id}
                 className="ios-card"
-                style={isRentPayee ? { border: '1.5px solid var(--ios-blue)' } : {}}
+                style={isRentPayee || isWashingMachinePayee ? { border: '1.5px solid var(--ios-blue)' } : {}}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -109,6 +110,11 @@ export default function DirectoryView({
                         {isRentPayee && (
                           <span className="status-pill success" style={{ fontWeight: 800 }}>
                             Flat Rent Coordinator
+                          </span>
+                        )}
+                        {isWashingMachinePayee && (
+                          <span className="status-pill warning" style={{ fontWeight: 800, background: 'rgba(255, 149, 0, 0.12)', color: '#D97706', border: '1px solid rgba(255, 149, 0, 0.3)' }}>
+                            Washing Machine Coordinator
                           </span>
                         )}
                       </div>

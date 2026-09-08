@@ -56,16 +56,48 @@ export default function BillsView({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Sort bills: Latest at top, older at bottom
-  const sortedBills = [...bills].sort((a, b) => {
-    // If id starts with bill-timestamp or string, compare timestamps or ids descending
-    const timeA = a.id.startsWith('bill-') ? parseInt(a.id.replace('bill-', '')) : 0;
-    const timeB = b.id.startsWith('bill-') ? parseInt(b.id.replace('bill-', '')) : 0;
-    if (timeA && timeB) return timeB - timeA;
-    if (timeB && !timeA) return 1;
-    if (timeA && !timeB) return -1;
-    return (b.dueDate || '').localeCompare(a.dueDate || '');
-  });
+  // Sort bills: Latest at top, deduplicate recurring bills (rent, washing-machine, electricity) per month
+  const sortedBills = useMemo(() => {
+    const recurringTypes = new Set(['rent', 'washing-machine', 'electricity']);
+    const seenRecurring = new Map();
+    const deduped = [];
+
+    [...bills].forEach((bill) => {
+      const monthKey = (bill.monthYear || '').trim().toLowerCase();
+      if (recurringTypes.has(bill.type) && monthKey) {
+        const key = `${bill.type}_${monthKey}`;
+        if (!seenRecurring.has(key)) {
+          seenRecurring.set(key, bill);
+          deduped.push({
+            ...bill,
+            ...(bill.type === 'washing-machine' ? {
+              recipientName: 'Manas (Washing Machine Coordinator)',
+              recipientUpi: '8010616851@upi'
+            } : {})
+          });
+        } else {
+          // Merge payments from duplicate into the existing one
+          const existing = seenRecurring.get(key);
+          Object.keys(bill.payments || {}).forEach((mId) => {
+            if (bill.payments?.[mId]?.paid && !existing.payments?.[mId]?.paid) {
+              existing.payments[mId] = bill.payments[mId];
+            }
+          });
+        }
+      } else {
+        deduped.push(bill);
+      }
+    });
+
+    return deduped.sort((a, b) => {
+      const timeA = a.id.startsWith('bill-') ? parseInt(a.id.replace('bill-', '')) : 0;
+      const timeB = b.id.startsWith('bill-') ? parseInt(b.id.replace('bill-', '')) : 0;
+      if (timeA && timeB) return timeB - timeA;
+      if (timeB && !timeA) return 1;
+      if (timeA && !timeB) return -1;
+      return (b.dueDate || '').localeCompare(a.dueDate || '');
+    });
+  }, [bills]);
 
   const filteredBills = sortedBills.filter((b) => {
     if (filterType === 'all') return true;
@@ -175,8 +207,8 @@ export default function BillsView({
         finalTitle = 'Washing Machine Bill';
         calculatedTotal = 500;
         sharesObj = { manas: 100, rohan: 100, shubham: 100, ujwal: 100, prathamesh: 100 };
-        recipientName = 'Furlenco / Rentomojo';
-        recipientUpi = '8237580043@upi';
+        recipientName = 'Manas (Washing Machine Coordinator)';
+        recipientUpi = '8010616851@upi';
       } else {
         // 'other'
         finalTitle = newTitle.trim() || 'Other Flat Bill';

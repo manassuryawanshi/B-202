@@ -238,7 +238,57 @@ export default function App() {
       }
     });
 
-    const mergedBills = Array.from(billMap.values());
+    // 5. Deduplicate recurring bills by (type, monthYear)
+    // There can only ever be one 'rent', 'washing-machine', or 'electricity' bill per month.
+    const recurringTypes = new Set(['rent', 'washing-machine', 'electricity']);
+    const finalBillsMap = new Map();
+    const recurringSeen = new Map(); // `${type}_${monthKey}` -> canonicalId
+
+    Array.from(billMap.values()).forEach((b) => {
+      const monthKey = (b.monthYear || '').trim().toLowerCase();
+      if (recurringTypes.has(b.type) && monthKey) {
+        const dedupeKey = `${b.type}_${monthKey}`;
+        if (!recurringSeen.has(dedupeKey)) {
+          recurringSeen.set(dedupeKey, b.id);
+          finalBillsMap.set(b.id, {
+            ...b,
+            ...(b.type === 'washing-machine' ? {
+              recipientName: 'Manas (Washing Machine Coordinator)',
+              recipientUpi: '8010616851@upi'
+            } : {})
+          });
+        } else {
+          // Merge into canonical bill
+          const canonicalId = recurringSeen.get(dedupeKey);
+          const canonicalBill = finalBillsMap.get(canonicalId);
+
+          const mergedPayments = { ...(canonicalBill.payments || {}) };
+          Object.keys(b.payments || {}).forEach((mId) => {
+            const canonicalPay = canonicalBill.payments?.[mId];
+            const duplicatePay = b.payments?.[mId];
+            if (duplicatePay?.paid && !canonicalPay?.paid) {
+              mergedPayments[mId] = duplicatePay;
+            }
+          });
+
+          // Mark duplicate ID permanently deleted
+          deletedIds.add(b.id);
+
+          finalBillsMap.set(canonicalId, {
+            ...canonicalBill,
+            payments: mergedPayments,
+            ...(b.type === 'washing-machine' ? {
+              recipientName: 'Manas (Washing Machine Coordinator)',
+              recipientUpi: '8010616851@upi'
+            } : {})
+          });
+        }
+      } else {
+        finalBillsMap.set(b.id, b);
+      }
+    });
+
+    const mergedBills = Array.from(finalBillsMap.values());
 
     return {
       ...prev,

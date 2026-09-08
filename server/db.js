@@ -233,8 +233,8 @@ const DEFAULT_BILLS = [
     totalAmount: 500,
     dueDate: "2026-09-10",
     monthYear: "Sep 2026",
-    recipientName: "Furlenco / Rentomojo",
-    recipientUpi: "8237580043@upi",
+    recipientName: "Manas (Washing Machine Coordinator)",
+    recipientUpi: "8010616851@upi",
     isCustomSplit: false,
     perPersonAmount: 100,
     shares: {

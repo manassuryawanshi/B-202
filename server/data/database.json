@@ -25,7 +25,7 @@
       "upiId": "8237580043@upi",
       "avatarColor": "#E67E22",
       "initials": "SH",
-      "avatarEmoji": "🛋️",
+      "avatarEmoji": "\ud83d\udecb\ufe0f",
       "pin": "1234"
     },
     {
@@ -69,7 +69,7 @@
       "upiId": "8459692494@upi",
       "avatarColor": "#8E44AD",
       "initials": "PR",
-      "avatarEmoji": "🚿",
+      "avatarEmoji": "\ud83d\udebf",
       "pin": "1234"
     }
   ],
@@ -82,7 +82,7 @@
     "monthlyRent": 27000,
     "dueDay": 5,
     "depositAmount": 100000,
-    "notes": "Monthly rent ₹27,000 strictly by 5th of each month. Share screenshot on WhatsApp.",
+    "notes": "Monthly rent \u20b927,000 strictly by 5th of each month. Share screenshot on WhatsApp.",
     "whatsappLink": "https://wa.me/919822012345?text=Hi%20Ajit%20ji,%20Rent%20for%20B-202%20Skyra%20Residency%20is%20paid."
   },
   "areas": [
@@ -272,14 +272,14 @@
       }
     },
     {
-      "id": "wm-1788366992179",
+      "id": "wm-sep-2026",
       "title": "Washing Machine Bill",
       "type": "washing-machine",
       "totalAmount": 500,
       "dueDate": "2026-09-10",
       "monthYear": "Sep 2026",
-      "recipientName": "Furlenco / Rentomojo",
-      "recipientUpi": "8237580043@upi",
+      "recipientName": "Manas (Washing Machine Coordinator)",
+      "recipientUpi": "8010616851@upi",
       "isCustomSplit": false,
       "perPersonAmount": 100,
       "creatorId": "system",
@@ -324,8 +324,8 @@
       }
     },
     {
-      "id": "rent-1788366992179",
-      "title": "Flat Rent",
+      "id": "rent-sep-2026",
+      "title": "September Flat Rent",
       "type": "rent",
       "totalAmount": 27000,
       "dueDate": "2026-09-05",
@@ -455,7 +455,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Electricity bill arrived for August/September: ₹2,850 total. Check your custom share in the Bills tab!",
+      "text": "Electricity bill arrived for August/September: \u20b92,850 total. Check your custom share in the Bills tab!",
       "timestamp": "2026-09-01T10:15:00.000Z",
       "reactions": {
         "thumbs": 3,
@@ -469,7 +469,7 @@
       "senderId": "rohan",
       "senderName": "Rohan",
       "category": "bills",
-      "text": "Rent for this month is ₹27,000 due on 5th September. Paid my ₹4,500 share to Sharma ji!",
+      "text": "Rent for this month is \u20b927,000 due on 5th September. Paid my \u20b94,500 share to Sharma ji!",
       "timestamp": "2026-09-01T11:45:00.000Z",
       "reactions": {
         "paid": 4
@@ -532,7 +532,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Manas paid ₹100 for Washing Machine Rental.",
+      "text": "Manas paid \u20b9100 for Washing Machine Rental.",
       "timestamp": "2026-09-01T20:36:06.460Z",
       "reactions": {
         "paid": 1
@@ -557,7 +557,7 @@
       "senderId": "system",
       "senderName": "Manas",
       "category": "bills",
-      "text": "New bill added: testing bill (₹5000). Due: 2026-09-15.",
+      "text": "New bill added: testing bill (\u20b95000). Due: 2026-09-15.",
       "timestamp": "2026-09-02T14:35:30.766Z",
       "reactions": {
         "energy": 1
@@ -569,7 +569,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Manas paid ₹0 for testing bill.",
+      "text": "Manas paid \u20b90 for testing bill.",
       "timestamp": "2026-09-02T14:37:55.514Z",
       "reactions": {
         "paid": 1
@@ -581,7 +581,7 @@
       "senderId": "system",
       "senderName": "Manas",
       "category": "bills",
-      "text": "New bill added: bill (₹20000). Due: 2026-09-15.",
+      "text": "New bill added: bill (\u20b920000). Due: 2026-09-15.",
       "timestamp": "2026-09-02T14:38:28.012Z",
       "reactions": {
         "energy": 1
@@ -593,7 +593,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Manas paid ₹0 for bill.",
+      "text": "Manas paid \u20b90 for bill.",
       "timestamp": "2026-09-02T14:38:33.880Z",
       "reactions": {
         "paid": 1
@@ -638,7 +638,7 @@
       "senderId": "rohan",
       "senderName": "Rohan",
       "category": "bills",
-      "text": "Rohan paid ₹0 for bill.",
+      "text": "Rohan paid \u20b90 for bill.",
       "timestamp": "2026-09-02T14:53:56.591Z",
       "reactions": {
         "paid": 1
@@ -650,7 +650,7 @@
       "senderId": "shubham",
       "senderName": "Shubham",
       "category": "bills",
-      "text": "Shubham paid ₹0 for bill.",
+      "text": "Shubham paid \u20b90 for bill.",
       "timestamp": "2026-09-02T14:54:11.894Z",
       "reactions": {
         "paid": 1
@@ -662,7 +662,7 @@
       "senderId": "ujwal",
       "senderName": "Ujwal",
       "category": "bills",
-      "text": "Ujwal paid ₹20000 for bill.",
+      "text": "Ujwal paid \u20b920000 for bill.",
       "timestamp": "2026-09-02T14:54:30.134Z",
       "reactions": {
         "paid": 1
@@ -674,7 +674,7 @@
       "senderId": "prathamesh",
       "senderName": "Prathamesh",
       "category": "bills",
-      "text": "Prathamesh paid ₹0 for bill.",
+      "text": "Prathamesh paid \u20b90 for bill.",
       "timestamp": "2026-09-02T14:54:39.628Z",
       "reactions": {
         "paid": 1
@@ -768,7 +768,7 @@
       "senderId": "system",
       "senderName": "Manas",
       "category": "bills",
-      "text": "New bill added: Flat Rent (₹27000). Due: 2026-09-15.",
+      "text": "New bill added: Flat Rent (\u20b927000). Due: 2026-09-15.",
       "timestamp": "2026-09-02T15:30:03.961Z",
       "reactions": {
         "energy": 1
@@ -780,7 +780,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Manas paid ₹9000 for Flat Rent.",
+      "text": "Manas paid \u20b99000 for Flat Rent.",
       "timestamp": "2026-09-02T15:39:27.612Z",
       "reactions": {
         "paid": 1
@@ -828,7 +828,7 @@
       "senderId": "system",
       "senderName": "Manas",
       "category": "bills",
-      "text": "New bill added: Bathroom Geyser Repair (₹750). Due: 2026-09-15.",
+      "text": "New bill added: Bathroom Geyser Repair (\u20b9750). Due: 2026-09-15.",
       "timestamp": "2026-09-02T16:06:55.550Z",
       "reactions": {
         "energy": 1
@@ -840,7 +840,7 @@
       "senderId": "system",
       "senderName": "Manas",
       "category": "bills",
-      "text": "New bill added: Electricity Bill (₹2850). Due: 2026-09-15.",
+      "text": "New bill added: Electricity Bill (\u20b92850). Due: 2026-09-15.",
       "timestamp": "2026-09-02T16:22:38.523Z",
       "reactions": {
         "energy": 1
@@ -852,7 +852,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "I added a new bill: Society Maintenance Extra (₹500). Due: 2026-09-15 (Lift service).",
+      "text": "I added a new bill: Society Maintenance Extra (\u20b9500). Due: 2026-09-15 (Lift service).",
       "timestamp": "2026-09-02T16:32:57.759Z",
       "reactions": {},
       "userReactions": {},
@@ -863,7 +863,7 @@
       "senderId": "ujwal",
       "senderName": "Ujwal",
       "category": "bills",
-      "text": "I added a new bill: testing (₹12334). Due: 2026-09-15.",
+      "text": "I added a new bill: testing (\u20b912334). Due: 2026-09-15.",
       "timestamp": "2026-09-02T16:37:23.466Z",
       "reactions": {},
       "userReactions": {},
@@ -874,7 +874,7 @@
       "senderId": "rohan",
       "senderName": "Rohan",
       "category": "bills",
-      "text": "I added a new bill: Plumbing Tap Washer (₹200). Due: 2026-09-15.",
+      "text": "I added a new bill: Plumbing Tap Washer (\u20b9200). Due: 2026-09-15.",
       "timestamp": "2026-09-02T16:57:24.998Z",
       "reactions": {},
       "updatedAt": 1788890340272
@@ -884,7 +884,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Manas paid ₹100 for Washing Machine Bill.",
+      "text": "Manas paid \u20b9100 for Washing Machine Bill.",
       "timestamp": "2026-09-02T17:07:49.876Z",
       "reactions": {
         "paid": 1
@@ -896,7 +896,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Manas paid ₹9000 for Flat Rent.",
+      "text": "Manas paid \u20b99000 for Flat Rent.",
       "timestamp": "2026-09-08T10:05:20.494Z",
       "reactions": {
         "paid": 1
@@ -908,7 +908,7 @@
       "senderId": "ujwal",
       "senderName": "Ujwal",
       "category": "bills",
-      "text": "Ujwal paid ₹4500 for Flat Rent.",
+      "text": "Ujwal paid \u20b94500 for Flat Rent.",
       "timestamp": "2026-09-08T10:05:36.546Z",
       "reactions": {
         "paid": 1
@@ -920,7 +920,7 @@
       "senderId": "prathamesh",
       "senderName": "Prathamesh",
       "category": "bills",
-      "text": "Prathamesh paid ₹4500 for Flat Rent.",
+      "text": "Prathamesh paid \u20b94500 for Flat Rent.",
       "timestamp": "2026-09-08T10:05:54.650Z",
       "reactions": {
         "paid": 1
@@ -932,7 +932,7 @@
       "senderId": "rohan",
       "senderName": "Rohan",
       "category": "bills",
-      "text": "Rohan paid ₹4500 for Flat Rent.",
+      "text": "Rohan paid \u20b94500 for Flat Rent.",
       "timestamp": "2026-09-08T10:06:04.682Z",
       "reactions": {
         "paid": 1
@@ -945,7 +945,7 @@
       "senderId": "shubham",
       "senderName": "Shubham",
       "category": "bills",
-      "text": "Shubham paid ₹4500 for Flat Rent.",
+      "text": "Shubham paid \u20b94500 for Flat Rent.",
       "timestamp": "2026-09-08T10:06:13.500Z",
       "reactions": {
         "paid": 1
@@ -957,7 +957,7 @@
       "senderId": "shubham",
       "senderName": "Shubham",
       "category": "bills",
-      "text": "I added a new bill: repairs (₹1000). Due: 2026-09-15.",
+      "text": "I added a new bill: repairs (\u20b91000). Due: 2026-09-15.",
       "timestamp": "2026-09-08T10:07:00.487Z",
       "reactions": {},
       "userReactions": {},
@@ -968,7 +968,7 @@
       "senderId": "shubham",
       "senderName": "Shubham",
       "category": "bills",
-      "text": "Shubham paid ₹0 for repairs.",
+      "text": "Shubham paid \u20b90 for repairs.",
       "timestamp": "2026-09-08T10:07:16.831Z",
       "reactions": {
         "paid": 1
@@ -981,7 +981,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Manas paid ₹0 for repairs.",
+      "text": "Manas paid \u20b90 for repairs.",
       "timestamp": "2026-09-08T10:15:19.492Z",
       "reactions": {
         "paid": 1
@@ -993,7 +993,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "I added a new bill: Internet Router Upgrade (₹1500). Due: 2026-09-15.",
+      "text": "I added a new bill: Internet Router Upgrade (\u20b91500). Due: 2026-09-15.",
       "timestamp": "2026-09-08T10:20:29.089Z",
       "reactions": {},
       "updatedAt": 1788890340272
@@ -1003,7 +1003,7 @@
       "senderId": "manas",
       "senderName": "Manas",
       "category": "bills",
-      "text": "Manas paid ₹300 for Internet Router Upgrade.",
+      "text": "Manas paid \u20b9300 for Internet Router Upgrade.",
       "timestamp": "2026-09-08T10:20:38.880Z",
       "reactions": {
         "paid": 1
@@ -1015,7 +1015,7 @@
       "senderId": "rohan",
       "senderName": "Rohan",
       "category": "bills",
-      "text": "Rohan paid ₹300 for Internet Router Upgrade.",
+      "text": "Rohan paid \u20b9300 for Internet Router Upgrade.",
       "timestamp": "2026-09-08T10:43:20.369Z",
       "reactions": {
         "paid": 1
@@ -1027,7 +1027,7 @@
       "senderId": "rohan",
       "senderName": "Rohan",
       "category": "bills",
-      "text": "Rohan paid ₹0 for repairs.",
+      "text": "Rohan paid \u20b90 for repairs.",
       "timestamp": "2026-09-08T10:44:31.661Z",
       "reactions": {
         "paid": 1
@@ -1039,7 +1039,7 @@
     {
       "id": "notif-1788864271661",
       "title": "Payment Received: Rohan",
-      "body": "Paid ₹0 for repairs.",
+      "body": "Paid \u20b90 for repairs.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1047,7 +1047,7 @@
     {
       "id": "notif-1788864200369",
       "title": "Payment Received: Rohan",
-      "body": "Paid ₹300 for Internet Router Upgrade.",
+      "body": "Paid \u20b9300 for Internet Router Upgrade.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1055,7 +1055,7 @@
     {
       "id": "notif-1788862838880",
       "title": "Payment Received: Manas",
-      "body": "Paid ₹300 for Internet Router Upgrade.",
+      "body": "Paid \u20b9300 for Internet Router Upgrade.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1063,7 +1063,7 @@
     {
       "id": "notif-1788862829089",
       "title": "New Bill Added: Internet Router Upgrade",
-      "body": "Amount: ₹1500. Due by 2026-09-15.",
+      "body": "Amount: \u20b91500. Due by 2026-09-15.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1071,7 +1071,7 @@
     {
       "id": "notif-1788862519492",
       "title": "Payment Received: Manas",
-      "body": "Paid ₹0 for repairs.",
+      "body": "Paid \u20b90 for repairs.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1079,7 +1079,7 @@
     {
       "id": "notif-1788862036831",
       "title": "Payment Received: Shubham",
-      "body": "Paid ₹0 for repairs.",
+      "body": "Paid \u20b90 for repairs.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1087,7 +1087,7 @@
     {
       "id": "notif-1788862020487",
       "title": "New Bill Added: repairs",
-      "body": "Amount: ₹1000. Due by 2026-09-15.",
+      "body": "Amount: \u20b91000. Due by 2026-09-15.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1095,7 +1095,7 @@
     {
       "id": "notif-1788861973500",
       "title": "Payment Received: Shubham",
-      "body": "Paid ₹4500 for Flat Rent.",
+      "body": "Paid \u20b94500 for Flat Rent.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1103,7 +1103,7 @@
     {
       "id": "notif-1788861964682",
       "title": "Payment Received: Rohan",
-      "body": "Paid ₹4500 for Flat Rent.",
+      "body": "Paid \u20b94500 for Flat Rent.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1111,7 +1111,7 @@
     {
       "id": "notif-1788861954650",
       "title": "Payment Received: Prathamesh",
-      "body": "Paid ₹4500 for Flat Rent.",
+      "body": "Paid \u20b94500 for Flat Rent.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1119,7 +1119,7 @@
     {
       "id": "notif-1788861936546",
       "title": "Payment Received: Ujwal",
-      "body": "Paid ₹4500 for Flat Rent.",
+      "body": "Paid \u20b94500 for Flat Rent.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1127,7 +1127,7 @@
     {
       "id": "notif-1788861920494",
       "title": "Payment Received: Manas",
-      "body": "Paid ₹9000 for Flat Rent.",
+      "body": "Paid \u20b99000 for Flat Rent.",
       "time": "Just now",
       "type": "bill",
       "unread": true
@@ -1135,10 +1135,14 @@
     {
       "id": "notif-1788368869876",
       "title": "Payment Received: Manas",
-      "body": "Paid ₹100 for Washing Machine Bill.",
+      "body": "Paid \u20b9100 for Washing Machine Bill.",
       "time": "Just now",
       "type": "bill",
       "unread": true
     }
+  ],
+  "deletedBillIds": [
+    "rent-1788366992179",
+    "wm-1788366992179"
   ]
 }

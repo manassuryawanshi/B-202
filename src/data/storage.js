@@ -25,7 +25,52 @@ export const loadStoredData = () => {
     const currentUserId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER) || 'manas';
     const areas = JSON.parse(localStorage.getItem(STORAGE_KEYS.AREAS)) || CLEANING_AREAS;
     const choreHistory = JSON.parse(localStorage.getItem(STORAGE_KEYS.CHORE_HISTORY)) || INITIAL_CHORE_HISTORY;
-    const bills = JSON.parse(localStorage.getItem(STORAGE_KEYS.BILLS)) || INITIAL_BILLS;
+    const rawBills = JSON.parse(localStorage.getItem(STORAGE_KEYS.BILLS)) || INITIAL_BILLS;
+    
+    // Deduplicate recurring bills (rent, washing-machine, electricity) by (type, monthYear)
+    const recurringTypes = new Set(['rent', 'washing-machine', 'electricity']);
+    const billsMap = new Map();
+    const recurringSeen = new Map();
+
+    (rawBills || []).forEach((b) => {
+      const monthKey = (b.monthYear || '').trim().toLowerCase();
+      if (recurringTypes.has(b.type) && monthKey) {
+        const key = `${b.type}_${monthKey}`;
+        if (!recurringSeen.has(key)) {
+          recurringSeen.set(key, b.id);
+          billsMap.set(b.id, {
+            ...b,
+            ...(b.type === 'washing-machine' ? {
+              recipientName: 'Manas (Washing Machine Coordinator)',
+              recipientUpi: '8010616851@upi'
+            } : {})
+          });
+        } else {
+          // Merge payments from duplicate into canonical bill
+          const canonicalId = recurringSeen.get(key);
+          const canonical = billsMap.get(canonicalId);
+          const mergedPayments = { ...(canonical.payments || {}) };
+          Object.keys(b.payments || {}).forEach((mId) => {
+            if (b.payments?.[mId]?.paid && !canonical.payments?.[mId]?.paid) {
+              mergedPayments[mId] = b.payments[mId];
+            }
+          });
+          billsMap.set(canonicalId, {
+            ...canonical,
+            payments: mergedPayments,
+            ...(b.type === 'washing-machine' ? {
+              recipientName: 'Manas (Washing Machine Coordinator)',
+              recipientUpi: '8010616851@upi'
+            } : {})
+          });
+        }
+      } else {
+        billsMap.set(b.id, b);
+      }
+    });
+    const bills = Array.from(billsMap.values());
+    saveToStorage(STORAGE_KEYS.BILLS, bills);
+
     const messages = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES)) || INITIAL_MESSAGES;
     const notifications = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) || INITIAL_NOTIFICATIONS;
     const owner = JSON.parse(localStorage.getItem(STORAGE_KEYS.OWNER)) || OWNER_DETAILS;

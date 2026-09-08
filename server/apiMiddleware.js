@@ -71,27 +71,35 @@ export function createB202ApiMiddleware() {
           db.bills.unshift(rentBill);
           dbChanged = true;
         } else if (rentBillsThisMonth.length > 1) {
-          const firstRentId = rentBillsThisMonth[0].id;
+          const canonicalRent = rentBillsThisMonth[0];
           const duplicateIds = rentBillsThisMonth.slice(1).map((b) => b.id);
-          db.deletedBillIds = [...(db.deletedBillIds || []), ...duplicateIds];
-          db.bills = db.bills.filter((b) => b.type !== 'rent' || b.monthYear !== currentMonthYear || b.id === firstRentId);
+          // Merge all payments from duplicates so no paid record is lost
+          rentBillsThisMonth.slice(1).forEach((dup) => {
+            Object.keys(dup.payments || {}).forEach((mId) => {
+              if (dup.payments[mId]?.paid && !canonicalRent.payments?.[mId]?.paid) {
+                canonicalRent.payments[mId] = dup.payments[mId];
+              }
+            });
+          });
+          db.deletedBillIds = [...new Set([...(db.deletedBillIds || []), ...duplicateIds])];
+          db.bills = db.bills.filter((b) => b.type !== 'rent' || b.monthYear !== currentMonthYear || b.id === canonicalRent.id);
           dbChanged = true;
         }
 
-        // Auto-add Washing Machine bill if none exists for this month
+        // Auto-add Washing Machine bill if none exists for this month (Collected by Manas)
         const wmBillsThisMonth = db.bills.filter((b) => b.type === 'washing-machine' && b.monthYear === currentMonthYear);
         if (wmBillsThisMonth.length === 0) {
           const now = new Date();
           const dueStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-10`;
           const wmBill = {
-            id: `wm-${currentMonthYear.replace(' ', '-')}`,
+            id: `wm-${currentMonthYear.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
             title: 'Washing Machine Bill',
             type: 'washing-machine',
             totalAmount: 500,
             dueDate: dueStr,
             monthYear: currentMonthYear,
-            recipientName: 'Furlenco / Rentomojo',
-            recipientUpi: '8237580043@upi',
+            recipientName: 'Manas (Washing Machine Coordinator)',
+            recipientUpi: '8010616851@upi',
             isCustomSplit: false,
             perPersonAmount: 100,
             creatorId: 'system',
@@ -106,12 +114,31 @@ export function createB202ApiMiddleware() {
           };
           db.bills.unshift(wmBill);
           dbChanged = true;
-        } else if (wmBillsThisMonth.length > 1) {
-          const firstWmId = wmBillsThisMonth[0].id;
-          const duplicateIds = wmBillsThisMonth.slice(1).map((b) => b.id);
-          db.deletedBillIds = [...(db.deletedBillIds || []), ...duplicateIds];
-          db.bills = db.bills.filter((b) => b.type !== 'washing-machine' || b.monthYear !== currentMonthYear || b.id === firstWmId);
-          dbChanged = true;
+        } else {
+          // Ensure all washing machine bills have Manas as recipient and deduplicate
+          wmBillsThisMonth.forEach((b) => {
+            if (b.recipientUpi !== '8010616851@upi' || b.recipientName !== 'Manas (Washing Machine Coordinator)') {
+              b.recipientName = 'Manas (Washing Machine Coordinator)';
+              b.recipientUpi = '8010616851@upi';
+              dbChanged = true;
+            }
+          });
+
+          if (wmBillsThisMonth.length > 1) {
+            const canonicalWm = wmBillsThisMonth[0];
+            const duplicateIds = wmBillsThisMonth.slice(1).map((b) => b.id);
+            // Merge all payments from duplicates
+            wmBillsThisMonth.slice(1).forEach((dup) => {
+              Object.keys(dup.payments || {}).forEach((mId) => {
+                if (dup.payments[mId]?.paid && !canonicalWm.payments?.[mId]?.paid) {
+                  canonicalWm.payments[mId] = dup.payments[mId];
+                }
+              });
+            });
+            db.deletedBillIds = [...new Set([...(db.deletedBillIds || []), ...duplicateIds])];
+            db.bills = db.bills.filter((b) => b.type !== 'washing-machine' || b.monthYear !== currentMonthYear || b.id === canonicalWm.id);
+            dbChanged = true;
+          }
         }
 
         if (dbChanged) saveDatabase(db);
@@ -239,8 +266,8 @@ export function createB202ApiMiddleware() {
           finalRecipientName = 'Electricity Board (MSEDCL)';
           finalRecipientUpi = '8010616851@upi';
         } else if (type === 'washing-machine') {
-          finalRecipientName = 'Furlenco / Rentomojo';
-          finalRecipientUpi = '8237580043@upi';
+          finalRecipientName = 'Manas (Washing Machine Coordinator)';
+          finalRecipientUpi = '8010616851@upi';
         }
 
         const newBill = {
