@@ -51,7 +51,10 @@ export default function App() {
       const savedSession = localStorage.getItem('b202_active_session');
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
-        const member = data.members?.find((m) => m.id === parsed.userId);
+        const storedMembers = JSON.parse(localStorage.getItem(STORAGE_KEYS.MEMBERS)) || [];
+        const member =
+          storedMembers.find((m) => m.id === parsed.userId) ||
+          data.members?.find((m) => m.id === parsed.userId);
         if (member) return member;
       }
     } catch {}
@@ -82,7 +85,7 @@ export default function App() {
         await fetch('/api/profile/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: currentUser.id, theme: newTheme })
+          body: JSON.stringify({ userId: currentUser.id, theme: newTheme, updatedAt: Date.now() })
         });
       } catch {}
     }
@@ -98,14 +101,21 @@ export default function App() {
   const syncToSupabase = useCallback(async (updatedData) => {
     if (isSupabaseConfigured && supabase && updatedData) {
       try {
-        await supabase
+        const payloadToSave = {
+          ...updatedData,
+          _clientSessionId: clientSessionId,
+          _updatedAt: Date.now()
+        };
+        const { error } = await supabase
           .from('flat_state')
           .upsert({
             id: 'b202',
-            data: updatedData,
-            client_session_id: clientSessionId,
+            data: payloadToSave,
             updated_at: new Date().toISOString()
           });
+        if (error) {
+          console.error('Supabase sync error:', error);
+        }
       } catch (err) {
         console.error('Supabase sync error:', err);
       }
@@ -131,19 +141,54 @@ export default function App() {
       ...(incoming.deletedBillIds || [])
     ]);
 
-    // 2. Merge messages by ID (union of both, deduplicated & ordered by time)
+    // 2. Merge members with avatar and timestamp preservation
+    const memberMap = new Map();
+    (prev.members || []).forEach((m) => memberMap.set(m.id, m));
+    (incoming.members || []).forEach((inMember) => {
+      if (memberMap.has(inMember.id)) {
+        const localMember = memberMap.get(inMember.id);
+        const localTime = localMember.updatedAt || 0;
+        const inTime = inMember.updatedAt || 0;
+
+        let chosen;
+        if (inTime > localTime) {
+          chosen = { ...localMember, ...inMember };
+        } else if (localTime > inTime) {
+          chosen = { ...inMember, ...localMember };
+        } else {
+          // Equal timestamps or neither has updatedAt
+          const avatar = localMember.customAvatar || inMember.customAvatar || '';
+          chosen = { ...inMember, ...localMember, customAvatar: avatar };
+        }
+        // Always ensure customAvatar is preserved if either side had it
+        if (!chosen.customAvatar && (localMember.customAvatar || inMember.customAvatar)) {
+          chosen.customAvatar = localMember.customAvatar || inMember.customAvatar;
+        }
+        memberMap.set(inMember.id, chosen);
+      } else {
+        memberMap.set(inMember.id, inMember);
+      }
+    });
+    const mergedMembers = Array.from(memberMap.values());
+
+    // 3. Merge messages by ID (union of both, deduplicated & ordered by time)
     const messageMap = new Map();
-    (incoming.messages || []).forEach((m) => messageMap.set(m.id, m));
-    (prev.messages || []).forEach((m) => {
-      if (!messageMap.has(m.id)) {
-        messageMap.set(m.id, m);
+    (prev.messages || []).forEach((m) => messageMap.set(m.id, m));
+    (incoming.messages || []).forEach((inMsg) => {
+      if (messageMap.has(inMsg.id)) {
+        const localMsg = messageMap.get(inMsg.id);
+        const localTime = localMsg.updatedAt || 0;
+        const inTime = inMsg.updatedAt || 0;
+        messageMap.set(inMsg.id, localTime >= inTime ? localMsg : inMsg);
+      } else {
+        messageMap.set(inMsg.id, inMsg);
       }
     });
     const mergedMessages = Array.from(messageMap.values()).sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
 
-    // 3. Merge bills with conflict resolution
+    // 4. Merge bills with conflict resolution
     // - Deleted bills are NEVER revived
     // - Payments: If ANY version has paid: true, it STAYS paid
     // - Metadata: Latest updatedAt wins
@@ -198,6 +243,7 @@ export default function App() {
     return {
       ...prev,
       ...incoming,
+      members: mergedMembers,
       messages: mergedMessages,
       bills: mergedBills,
       deletedBillIds: Array.from(deletedIds)
@@ -210,23 +256,35 @@ export default function App() {
       try {
         const { data: row, error } = await supabase
           .from('flat_state')
-          .select('data, client_session_id')
+          .select('data')
           .eq('id', 'b202')
           .single();
 
         if (row && row.data) {
+          const incomingData = row.data;
           // If the cloud row is what this client just wrote, skip merging to prevent echo
-          if (row.client_session_id !== clientSessionId) {
-            setData((prev) => mergeIncomingData(row.data, prev));
+          if (incomingData._clientSessionId !== clientSessionId) {
+            setData((prev) => mergeIncomingData(incomingData, prev));
           }
           if (currentUser) {
-            const freshUser = row.data.members?.find((m) => m.id === currentUser.id);
-            if (freshUser) setCurrentUser(freshUser);
+            const freshUser = incomingData.members?.find((m) => m.id === currentUser.id);
+            if (freshUser) {
+              setCurrentUser((prevUser) => {
+                if (!prevUser) return freshUser;
+                if (prevUser.customAvatar && !freshUser.customAvatar) {
+                  return { ...freshUser, customAvatar: prevUser.customAvatar };
+                }
+                return freshUser;
+              });
+            }
           }
           return;
         } else if (error && error.code === 'PGRST116') {
           // Initialize row if not existing
-          await supabase.from('flat_state').insert({ id: 'b202', data: data, client_session_id: clientSessionId });
+          await supabase.from('flat_state').insert({
+            id: 'b202',
+            data: { ...data, _clientSessionId: clientSessionId, _updatedAt: Date.now() }
+          });
         }
       } catch (err) {
         console.warn('Supabase fetch fallback:', err);
@@ -241,7 +299,15 @@ export default function App() {
 
         if (currentUser) {
           const freshUser = serverDb.members?.find((m) => m.id === currentUser.id);
-          if (freshUser) setCurrentUser(freshUser);
+          if (freshUser) {
+            setCurrentUser((prevUser) => {
+              if (!prevUser) return freshUser;
+              if (prevUser.customAvatar && !freshUser.customAvatar) {
+                return { ...freshUser, customAvatar: prevUser.customAvatar };
+              }
+              return freshUser;
+            });
+          }
         }
       }
     } catch {}
@@ -259,12 +325,24 @@ export default function App() {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'flat_state', filter: 'id=eq.b202' },
           (payload) => {
+            const incomingData = payload?.new?.data;
+            if (!incomingData) return;
             // Ignore events triggered by THIS client tab to break infinite loops & state oscillation
-            if (payload?.new?.client_session_id === clientSessionId) {
+            if (incomingData._clientSessionId === clientSessionId) {
               return;
             }
-            if (payload?.new?.data) {
-              setData((prev) => mergeIncomingData(payload.new.data, prev));
+            setData((prev) => mergeIncomingData(incomingData, prev));
+            if (currentUser) {
+              const freshUser = incomingData.members?.find((m) => m.id === currentUser.id);
+              if (freshUser) {
+                setCurrentUser((prevUser) => {
+                  if (!prevUser) return freshUser;
+                  if (prevUser.customAvatar && !freshUser.customAvatar) {
+                    return { ...freshUser, customAvatar: prevUser.customAvatar };
+                  }
+                  return freshUser;
+                });
+              }
             }
           }
         )
@@ -285,13 +363,14 @@ export default function App() {
     };
   }, [clientSessionId, fetchServerData, mergeIncomingData]);
 
-  // Persist local backup to localStorage (Does NOT trigger cloud sync to avoid infinite loops)
+  // Persist local backup to localStorage (including members!)
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.AREAS, data.areas);
     saveToStorage(STORAGE_KEYS.CHORE_HISTORY, data.choreHistory);
     saveToStorage(STORAGE_KEYS.BILLS, data.bills);
     saveToStorage(STORAGE_KEYS.MESSAGES, data.messages);
     saveToStorage(STORAGE_KEYS.NOTIFICATIONS, data.notifications);
+    saveToStorage(STORAGE_KEYS.MEMBERS, data.members);
   }, [data]);
 
   // Login handler
@@ -311,18 +390,41 @@ export default function App() {
 
   // Update Profile Details
   const handleUpdateProfile = async (updatedFields) => {
+    const now = Date.now();
+    const fieldsWithTime = { ...updatedFields, updatedAt: now };
+
+    // Update currentUser immediately
+    setCurrentUser((prev) => ({ ...(prev || {}), ...fieldsWithTime }));
+
+    // Update local state and sync to Supabase Cloud
+    updateDataAndSync((prev) => ({
+      ...prev,
+      members: (prev.members || []).map((m) =>
+        m.id === updatedFields.userId ? { ...m, ...fieldsWithTime } : m
+      )
+    }));
+
+    // Also persist to localStorage immediately
+    try {
+      const currentStored = JSON.parse(localStorage.getItem(STORAGE_KEYS.MEMBERS) || '[]');
+      const updatedStored = (currentStored || []).map((m) =>
+        m.id === updatedFields.userId ? { ...m, ...fieldsWithTime } : m
+      );
+      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(updatedStored));
+    } catch {}
+
     try {
       const res = await fetch('/api/profile/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFields)
+        body: JSON.stringify(fieldsWithTime)
       });
 
       if (res.ok) {
         const result = await res.json();
         if (result.success && result.user) {
           setCurrentUser(result.user);
-          setData((prev) => ({
+          updateDataAndSync((prev) => ({
             ...prev,
             members: result.members
           }));
@@ -330,17 +432,10 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.error(err);
+      console.error('Profile update API error:', err);
     }
 
-    // Local fallback
-    const updatedUser = { ...currentUser, ...updatedFields };
-    setCurrentUser(updatedUser);
-    setData((prev) => ({
-      ...prev,
-      members: prev.members.map((m) => (m.id === updatedFields.userId ? { ...m, ...updatedFields } : m))
-    }));
-    return updatedUser;
+    return { ...currentUser, ...fieldsWithTime };
   };
 
   // Mark Chore Cleaned
@@ -622,7 +717,8 @@ export default function App() {
           return {
             ...m,
             reactions,
-            userReactions
+            userReactions,
+            updatedAt: Date.now()
           };
         }
         return m;
@@ -656,6 +752,7 @@ export default function App() {
         }))
       },
       timestamp: new Date().toISOString(),
+      updatedAt: Date.now(),
       reactions: {}
     };
 
@@ -673,20 +770,26 @@ export default function App() {
     } catch {}
   };
 
-  // Vote on Interactive Poll
+  // Vote on Interactive Poll (Toggle vote on/off with latest timestamp)
   const handleVotePoll = async (msgId, optionId) => {
+    if (!currentUser) return;
+    const now = Date.now();
+
     updateDataAndSync((prev) => ({
       ...prev,
       messages: (prev.messages || []).map((m) => {
         if (m.id === msgId && m.poll) {
+          const targetOpt = m.poll.options.find((opt) => opt.id === optionId);
+          const wasAlreadyVoted = (targetOpt?.votes || []).includes(currentUser.id);
+
           const updatedOptions = m.poll.options.map((opt) => {
             const filteredVotes = (opt.votes || []).filter((uid) => uid !== currentUser.id);
-            if (opt.id === optionId) {
+            if (opt.id === optionId && !wasAlreadyVoted) {
               return { ...opt, votes: [...filteredVotes, currentUser.id] };
             }
             return { ...opt, votes: filteredVotes };
           });
-          return { ...m, poll: { ...m.poll, options: updatedOptions } };
+          return { ...m, updatedAt: now, poll: { ...m.poll, options: updatedOptions } };
         }
         return m;
       })

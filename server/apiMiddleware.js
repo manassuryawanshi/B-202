@@ -49,7 +49,7 @@ export function createB202ApiMiddleware() {
           const now = new Date();
           const dueStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-05`;
           const rentBill = {
-            id: `rent-${Date.now()}`,
+            id: `rent-${currentMonthYear.replace(' ', '-')}`,
             title: 'Flat Rent',
             type: 'rent',
             totalAmount: 27000,
@@ -72,6 +72,8 @@ export function createB202ApiMiddleware() {
           dbChanged = true;
         } else if (rentBillsThisMonth.length > 1) {
           const firstRentId = rentBillsThisMonth[0].id;
+          const duplicateIds = rentBillsThisMonth.slice(1).map((b) => b.id);
+          db.deletedBillIds = [...(db.deletedBillIds || []), ...duplicateIds];
           db.bills = db.bills.filter((b) => b.type !== 'rent' || b.monthYear !== currentMonthYear || b.id === firstRentId);
           dbChanged = true;
         }
@@ -82,7 +84,7 @@ export function createB202ApiMiddleware() {
           const now = new Date();
           const dueStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-10`;
           const wmBill = {
-            id: `wm-${Date.now()}`,
+            id: `wm-${currentMonthYear.replace(' ', '-')}`,
             title: 'Washing Machine Bill',
             type: 'washing-machine',
             totalAmount: 500,
@@ -106,6 +108,8 @@ export function createB202ApiMiddleware() {
           dbChanged = true;
         } else if (wmBillsThisMonth.length > 1) {
           const firstWmId = wmBillsThisMonth[0].id;
+          const duplicateIds = wmBillsThisMonth.slice(1).map((b) => b.id);
+          db.deletedBillIds = [...(db.deletedBillIds || []), ...duplicateIds];
           db.bills = db.bills.filter((b) => b.type !== 'washing-machine' || b.monthYear !== currentMonthYear || b.id === firstWmId);
           dbChanged = true;
         }
@@ -577,6 +581,7 @@ export function createB202ApiMiddleware() {
             msg.reactions[reactionType] = (msg.reactions[reactionType] || 0) + 1;
           }
 
+          msg.updatedAt = Date.now();
           saveDatabase(db);
         }
         const safeMembers = db.members.map(({ pin, ...rest }) => rest);
@@ -593,6 +598,7 @@ export function createB202ApiMiddleware() {
           category: category || 'urgent',
           text: recipientName && recipientName !== 'All Flatmates' ? `[To: ${recipientName}] ${text}` : text,
           timestamp: new Date().toISOString(),
+          updatedAt: Date.now(),
           reactions: {}
         };
         db.messages.push(newMsg);
@@ -614,7 +620,7 @@ export function createB202ApiMiddleware() {
 
       // 12. POST /api/profile/update - Update personal profile details, avatar & theme
       if (req.method === 'POST' && url === '/api/profile/update') {
-        const { userId, name, room, displayPhone, upiId, customAvatar, theme } = await readJsonBody(req);
+        const { userId, name, room, displayPhone, upiId, customAvatar, theme, updatedAt } = await readJsonBody(req);
         const member = db.members.find((m) => m.id === userId);
         if (!member) {
           return sendJson(res, 404, { success: false, error: 'Member not found' });
@@ -626,6 +632,7 @@ export function createB202ApiMiddleware() {
         if (upiId) member.upiId = upiId.trim();
         if (customAvatar !== undefined) member.customAvatar = customAvatar;
         if (theme) member.theme = theme;
+        member.updatedAt = updatedAt || Date.now();
 
         saveDatabase(db);
         const safeMembers = db.members.map(({ pin, ...rest }) => rest);
@@ -656,6 +663,7 @@ export function createB202ApiMiddleware() {
             }))
           },
           timestamp: new Date().toISOString(),
+          updatedAt: Date.now(),
           reactions: {}
         };
 
@@ -665,26 +673,28 @@ export function createB202ApiMiddleware() {
         return sendJson(res, 200, { success: true, message: pollMessage, ...db, members: safeMembers });
       }
 
-      // 14. POST /api/messages/poll-vote - Cast or change vote on poll
+      // 14. POST /api/messages/poll-vote - Cast or toggle vote on poll
       if (req.method === 'POST' && url === '/api/messages/poll-vote') {
         const { msgId, optionId, userId } = await readJsonBody(req);
         const msg = db.messages.find((m) => m.id === msgId && m.poll);
-        if (!msg) {
-          return sendJson(res, 404, { success: false, error: 'Poll message not found' });
+        if (msg) {
+          let wasAlreadyVoted = false;
+          msg.poll.options.forEach((opt) => {
+            if (opt.id === optionId && (opt.votes || []).includes(userId)) {
+              wasAlreadyVoted = true;
+            }
+            opt.votes = (opt.votes || []).filter((id) => id !== userId);
+          });
+
+          if (!wasAlreadyVoted) {
+            const targetOption = msg.poll.options.find((opt) => opt.id === optionId);
+            if (targetOption) {
+              targetOption.votes.push(userId);
+            }
+          }
+          msg.updatedAt = Date.now();
+          saveDatabase(db);
         }
-
-        // Remove user vote from all options in this poll first
-        msg.poll.options.forEach((opt) => {
-          opt.votes = (opt.votes || []).filter((id) => id !== userId);
-        });
-
-        // Add to selected option
-        const targetOption = msg.poll.options.find((opt) => opt.id === optionId);
-        if (targetOption) {
-          targetOption.votes.push(userId);
-        }
-
-        saveDatabase(db);
         const safeMembers = db.members.map(({ pin, ...rest }) => rest);
         return sendJson(res, 200, { success: true, ...db, members: safeMembers });
       }

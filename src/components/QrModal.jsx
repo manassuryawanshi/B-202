@@ -46,8 +46,70 @@ export default function QrModal({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleOpenUpiApp = () => {
+  const handleOpenPhonePe = () => {
     playHapticChime('success');
+    const pa = recipient.upiId;
+    const pn = encodeURIComponent(recipient.name);
+    const am = amount ? `&am=${amount}` : '';
+    const tn = encodeURIComponent('B202 Flat Share');
+
+    const ua = navigator.userAgent || '';
+    const isAndroid = /android/i.test(ua);
+
+    if (isAndroid) {
+      // Direct Android package intent targeting PhonePe (prevents WhatsApp from intercepting)
+      window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=com.phonepe.app;end`;
+    } else {
+      // iOS PhonePe custom scheme
+      const iosPhonepe = `phonepe://upi/pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
+      const start = Date.now();
+      window.location.href = iosPhonepe;
+
+      // Fallback for older iOS PhonePe builds
+      setTimeout(() => {
+        if (Date.now() - start < 1500) {
+          window.location.href = `phonepe://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
+        }
+      }, 500);
+    }
+  };
+
+  const handleOpenGPay = () => {
+    playHapticChime('click');
+    const pa = recipient.upiId;
+    const pn = encodeURIComponent(recipient.name);
+    const am = amount ? `&am=${amount}` : '';
+    const tn = encodeURIComponent('B202 Flat Share');
+
+    const ua = navigator.userAgent || '';
+    const isAndroid = /android/i.test(ua);
+
+    if (isAndroid) {
+      window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
+    } else {
+      window.location.href = `gpay://upi/pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
+    }
+  };
+
+  const handleOpenPaytm = () => {
+    playHapticChime('click');
+    const pa = recipient.upiId;
+    const pn = encodeURIComponent(recipient.name);
+    const am = amount ? `&am=${amount}` : '';
+    const tn = encodeURIComponent('B202 Flat Share');
+
+    const ua = navigator.userAgent || '';
+    const isAndroid = /android/i.test(ua);
+
+    if (isAndroid) {
+      window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=net.one97.paytm;end`;
+    } else {
+      window.location.href = `paytmmp://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
+    }
+  };
+
+  const handleOpenOtherUpi = () => {
+    playHapticChime('click');
     window.location.href = upiUrl;
   };
 
@@ -90,7 +152,7 @@ export default function QrModal({
                 letterSpacing: '0.8px'
               }}
             >
-              SCAN WITH GPAY / PHONEPE / PAYTM
+              SCAN WITH PHONEPE / GPAY / PAYTM
             </div>
           </div>
 
@@ -157,14 +219,81 @@ export default function QrModal({
             </div>
           </div>
 
+          {/* Primary Action: Direct PhonePe Button */}
           <button
             type="button"
-            className="ios-btn ios-btn-primary"
-            style={{ width: '100%', marginTop: '4px' }}
-            onClick={handleOpenUpiApp}
+            onClick={handleOpenPhonePe}
+            style={{
+              width: '100%',
+              backgroundColor: '#5f259f',
+              color: '#FFFFFF',
+              fontWeight: 800,
+              fontSize: '14.5px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '12px 16px',
+              borderRadius: '14px',
+              boxShadow: '0 4px 14px rgba(95, 37, 159, 0.35)',
+              border: 'none',
+              cursor: 'pointer',
+              marginTop: '4px',
+              transition: 'transform 0.15s ease'
+            }}
           >
-            <MaterialIcon name="open_in_new" size={16} /> Open UPI App on Phone
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="11" fill="#FFFFFF"/>
+              <path d="M13.8 7.2H9.8C8.8 7.2 8 8 8 9V14.5C8 15.3 8.7 16 9.5 16C10.3 16 11 15.3 11 14.5V13.2H13.8C15.2 13.2 16.3 12.1 16.3 10.7C16.3 9.3 15.2 7.2 13.8 7.2ZM13.6 11.5H11V8.9H13.6C14.1 8.9 14.6 9.3 14.6 9.8C14.6 10.3 14.1 11.5 13.6 11.5Z" fill="#5F259F"/>
+            </svg>
+            Pay with PhonePe
           </button>
+
+          {/* Secondary Actions: GPay, Paytm, and Other UPI */}
+          <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+            <button
+              type="button"
+              onClick={handleOpenGPay}
+              className="ios-btn ios-btn-secondary"
+              style={{
+                flex: 1,
+                fontSize: '12px',
+                fontWeight: 700,
+                padding: '8px 4px',
+                justifyContent: 'center'
+              }}
+            >
+              Google Pay
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenPaytm}
+              className="ios-btn ios-btn-secondary"
+              style={{
+                flex: 1,
+                fontSize: '12px',
+                fontWeight: 700,
+                padding: '8px 4px',
+                justifyContent: 'center'
+              }}
+            >
+              Paytm
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenOtherUpi}
+              className="ios-btn ios-btn-secondary"
+              style={{
+                flex: 1,
+                fontSize: '12px',
+                fontWeight: 700,
+                padding: '8px 4px',
+                justifyContent: 'center'
+              }}
+            >
+              Other UPI
+            </button>
+          </div>
         </div>
       </div>
     </div>
