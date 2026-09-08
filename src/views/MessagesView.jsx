@@ -19,6 +19,10 @@ export default function MessagesView({
   const [showSearch, setShowSearch] = useState(false);
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
 
+  // Reply-to State
+  const [replyTo, setReplyTo] = useState(null); // { id, senderName, text }
+  const inputRef = useRef(null);
+
   // Poll Creation Modal State
   const [showPollModal, setShowPollModal] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
@@ -26,6 +30,12 @@ export default function MessagesView({
 
   const messagesEndRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  // Swipe-to-reply tracking per message
+  const swipeStartX = useRef({});
+  const swipeOffset = useRef({});
+  const [swipingId, setSwipingId] = useState(null);
+  const SWIPE_THRESHOLD = 55;
 
   // Oldest at top, newest at bottom
   const sortedMessages = useMemo(() => {
@@ -95,9 +105,48 @@ export default function MessagesView({
       senderId: currentUser.id,
       senderName: currentUser.name,
       text: inputText.trim(),
-      category: 'general'
+      category: 'general',
+      replyTo: replyTo || null
     });
     setInputText('');
+    setReplyTo(null);
+  };
+
+  // Swipe handlers for reply gesture
+  const handleTouchStart = (e, msg) => {
+    swipeStartX.current[msg.id] = e.touches[0].clientX;
+    swipeOffset.current[msg.id] = 0;
+  };
+
+  const handleTouchMove = (e, msg) => {
+    const dx = e.touches[0].clientX - (swipeStartX.current[msg.id] || 0);
+    if (dx > 0) {
+      swipeOffset.current[msg.id] = Math.min(dx, 80);
+      setSwipingId(msg.id);
+    }
+  };
+
+  const handleTouchEnd = (e, msg) => {
+    const offset = swipeOffset.current[msg.id] || 0;
+    if (offset >= SWIPE_THRESHOLD) {
+      playHapticChime('click');
+      const preview = msg.poll
+        ? `📊 ${msg.poll.question}`
+        : (msg.text || '').slice(0, 80);
+      setReplyTo({ id: msg.id, senderName: msg.senderName, text: preview });
+      inputRef.current?.focus();
+    }
+    swipeOffset.current[msg.id] = 0;
+    setSwipingId(null);
+  };
+
+  const handleLongPress = (msg) => {
+    playHapticChime('click');
+    const preview = msg.poll
+      ? `📊 ${msg.poll.question}`
+      : (msg.text || '').slice(0, 80);
+    setReplyTo({ id: msg.id, senderName: msg.senderName, text: preview });
+    inputRef.current?.focus();
   };
 
   // Poll Handlers
@@ -466,6 +515,13 @@ export default function MessagesView({
             const isCurrentActiveMatch =
               searchMatches.length > 0 && searchMatches[activeMatchIndex]?.id === msg.id;
 
+            // Long-press detection
+            let longPressTimer;
+            const handleMouseDown = () => {
+              longPressTimer = setTimeout(() => handleLongPress(msg), 550);
+            };
+            const handleMouseUp = () => clearTimeout(longPressTimer);
+
             return (
               <React.Fragment key={msg.id}>
                 {/* Clean Apple Date Divider */}
@@ -488,12 +544,46 @@ export default function MessagesView({
                   </div>
                 )}
 
+                {/* Swipe-reply wrapper */}
+                <div
+                  style={{
+                    alignSelf: isMe ? 'flex-end' : 'flex-start',
+                    maxWidth: '85%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    position: 'relative',
+                    transform: swipingId === msg.id ? `translateX(${Math.min(swipeOffset.current[msg.id] || 0, 80)}px)` : 'none',
+                    transition: swipingId === msg.id ? 'none' : 'transform 0.2s ease'
+                  }}
+                  onTouchStart={(e) => handleTouchStart(e, msg)}
+                  onTouchMove={(e) => handleTouchMove(e, msg)}
+                  onTouchEnd={(e) => handleTouchEnd(e, msg)}
+                  onMouseDown={handleMouseDown}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  {/* Swipe reply icon revealed during swipe */}
+                  {swipingId === msg.id && (swipeOffset.current[msg.id] || 0) > 10 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: isMe ? 'auto' : `-${Math.min((swipeOffset.current[msg.id] || 0), 34)}px`,
+                        right: isMe ? `-${Math.min((swipeOffset.current[msg.id] || 0), 34)}px` : 'auto',
+                        opacity: Math.min((swipeOffset.current[msg.id] || 0) / SWIPE_THRESHOLD, 1),
+                        color: 'var(--ios-blue)',
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      <MaterialIcon name="reply" size={20} color="var(--ios-blue)" />
+                    </div>
+                  )}
+
                 {/* Message Bubble (Our Original Crisp Apple Theme Colors) */}
                 <div
                   id={`chat-msg-${msg.id}`}
                   style={{
-                    alignSelf: isMe ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%',
+                    flex: 1,
                     background: isMe ? 'var(--ios-blue-light, #EFF6FF)' : 'var(--ios-card, #FFFFFF)',
                     border: isMe ? '1px solid #BFDBFE' : '1px solid var(--ios-card-border)',
                     borderRadius: '18px',
@@ -502,6 +592,8 @@ export default function MessagesView({
                     padding: '10px 14px 8px 14px',
                     boxShadow: isCurrentActiveMatch
                       ? '0 0 0 3px #F59E0B, 0 6px 18px rgba(245, 158, 11, 0.35)'
+                      : replyTo?.id === msg.id
+                      ? '0 0 0 2px var(--ios-blue)'
                       : '0 1px 4px rgba(0, 0, 0, 0.04)',
                     position: 'relative',
                     transition: 'box-shadow 0.25s ease'
@@ -538,6 +630,37 @@ export default function MessagesView({
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
+
+                  {/* Quoted Reply Context */}
+                  {msg.replyTo && (
+                    <div
+                      onClick={() => scrollToMessage(msg.replyTo.id)}
+                      style={{
+                        background: isMe ? 'rgba(0,0,0,0.06)' : 'var(--ios-card-inset)',
+                        borderLeft: '3px solid var(--ios-blue)',
+                        borderRadius: '10px',
+                        padding: '6px 10px',
+                        marginBottom: '8px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ios-blue)', marginBottom: '2px' }}>
+                        {msg.replyTo.senderName}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11.5px',
+                          color: 'var(--ios-text-secondary)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: '220px'
+                        }}
+                      >
+                        {msg.replyTo.text}
+                      </div>
+                    </div>
+                  )}
 
                   {/* INTERACTIVE POLL RENDERING */}
                   {msg.poll ? (
@@ -720,6 +843,7 @@ export default function MessagesView({
                     })}
                   </div>
                 </div>
+                </div> {/* close swipe wrapper */}
               </React.Fragment>
             );
           })
@@ -728,13 +852,8 @@ export default function MessagesView({
       </div>
 
       {/* Clean Composer (NO Suggestions, NO Category Tags, NO "Sending as Manas") */}
-      <form
-        onSubmit={handleSend}
+      <div
         style={{
-          display: 'flex',
-          gap: '8px',
-          alignItems: 'center',
-          padding: '10px 14px calc(env(safe-area-inset-bottom, 8px) + 8px) 14px',
           background: 'var(--ios-nav-bg, rgba(255, 255, 255, 0.94))',
           backdropFilter: 'blur(25px)',
           WebkitBackdropFilter: 'blur(25px)',
@@ -742,8 +861,65 @@ export default function MessagesView({
           flexShrink: 0
         }}
       >
+        {/* Reply Preview Strip */}
+        {replyTo && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 14px 6px 14px',
+              borderBottom: '0.5px solid var(--ios-card-border)',
+              animation: 'modalFadeIn 0.15s ease-out'
+            }}
+          >
+            <div style={{ width: '3px', alignSelf: 'stretch', background: 'var(--ios-blue)', borderRadius: '2px', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--ios-blue)' }}>
+                {replyTo.senderName}
+              </div>
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--ios-text-secondary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {replyTo.text}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyTo(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--ios-text-tertiary)',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <MaterialIcon name="close" size={18} />
+            </button>
+          </div>
+        )}
+
+      <form
+        onSubmit={handleSend}
+        style={{
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+          padding: '10px 14px calc(env(safe-area-inset-bottom, 8px) + 8px) 14px'
+        }}
+      >
         <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
           <input
+            ref={inputRef}
             className="ios-input"
             style={{
               width: '100%',
@@ -752,7 +928,7 @@ export default function MessagesView({
               borderRadius: '24px',
               background: 'var(--ios-card-inset, #F3F4F6)'
             }}
-            placeholder="Type a message..."
+            placeholder={replyTo ? `Reply to ${replyTo.senderName}...` : 'Type a message...'}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             id="flat-chat-input"
@@ -782,6 +958,7 @@ export default function MessagesView({
           <MaterialIcon name="send" size={18} color="currentColor" />
         </button>
       </form>
+      </div>
 
       {/* CREATE POLL MODAL */}
       {showPollModal && (
