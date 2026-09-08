@@ -201,8 +201,8 @@ export default function BillsView({
         finalTitle = 'Flat Rent';
         calculatedTotal = 27000;
         sharesObj = { manas: 9000, rohan: 4500, shubham: 4500, ujwal: 4500, prathamesh: 4500 };
-        recipientName = 'Ujwal (Flat Rent Coordinator)';
-        recipientUpi = '8669240763@ybl';
+        recipientName = 'Ujwal Kailas Lekurwale (Rent Coordinator)';
+        recipientUpi = 'ujwal12017@oksbi';
       } else if (newCategory === 'washing-machine') {
         finalTitle = 'Washing Machine Bill';
         calculatedTotal = 500;

@@ -47,13 +47,13 @@ export const FLATMATE_MEMBERS = [
   },
   {
     id: "ujwal",
-    name: "Ujwal",
+    name: "Ujwal Kailas Lekurwale",
     phone: "8669240763",
     displayPhone: "86692 40763",
     room: "Bedroom 2 (Attached Bath)",
     roomBadge: "Bed 2 + Bath",
     roomType: "bedroom2",
-    upiId: "8669240763@ybl",
+    upiId: "ujwal12017@oksbi",
     avatarColor: "#34C759", // iOS Green
     initials: "UJ",
     avatarEmoji: ""
@@ -231,8 +231,8 @@ export const INITIAL_BILLS = [
     totalAmount: 27000,
     dueDate: "2026-09-05",
     monthYear: "Sep 2026",
-    recipientName: "Ujwal (Flat Rent Coordinator)",
-    recipientUpi: "8669240763@ybl",
+    recipientName: "Ujwal Kailas Lekurwale (Rent Coordinator)",
+    recipientUpi: "ujwal12017@oksbi",
     isCustomSplit: true,
     creatorId: "system",
     shares: {

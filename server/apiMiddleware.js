@@ -55,8 +55,8 @@ export function createB202ApiMiddleware() {
             totalAmount: 27000,
             dueDate: dueStr,
             monthYear: currentMonthYear,
-            recipientName: 'Ujwal (Flat Rent Coordinator)',
-            recipientUpi: '8669240763@ybl',
+            recipientName: 'Ujwal Kailas Lekurwale (Rent Coordinator)',
+            recipientUpi: 'ujwal12017@oksbi',
             isCustomSplit: true,
             creatorId: 'system',
             shares: { manas: 9000, rohan: 4500, shubham: 4500, ujwal: 4500, prathamesh: 4500 },
@@ -274,8 +274,8 @@ export function createB202ApiMiddleware() {
         let finalRecipientUpi = creatorMember?.upiId || '8010616851@ybl';
 
         if (type === 'rent') {
-          finalRecipientName = 'Ujwal (Flat Rent Coordinator)';
-          finalRecipientUpi = '8669240763@ybl';
+          finalRecipientName = 'Ujwal Kailas Lekurwale (Rent Coordinator)';
+          finalRecipientUpi = 'ujwal12017@oksbi';
         } else if (type === 'electricity') {
           finalRecipientName = 'Electricity Board (MSEDCL)';
           finalRecipientUpi = '8010616851@ybl';

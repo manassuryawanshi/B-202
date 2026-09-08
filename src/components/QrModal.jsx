@@ -17,6 +17,7 @@ export default function QrModal({
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
+  const [copiedPhoneToast, setCopiedPhoneToast] = useState(false);
   const [downloadedQr, setDownloadedQr] = useState(false);
   const [amount, setAmount] = useState(recipient.defaultAmount || '');
   const [includeAmountInLink, setIncludeAmountInLink] = useState(true);
@@ -117,6 +118,40 @@ export default function QrModal({
     navigator.clipboard.writeText(recipient.phone);
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
+  };
+
+  const handlePayViaPhone = () => {
+    if (!recipient.phone) return;
+    playHapticChime('success');
+    navigator.clipboard.writeText(recipient.phone);
+    setCopiedPhone(true);
+    setCopiedPhoneToast(true);
+    setTimeout(() => setCopiedPhone(false), 3000);
+    setTimeout(() => setCopiedPhoneToast(false), 7000);
+
+    const ua = navigator.userAgent || '';
+    const isAndroid = /android/i.test(ua);
+    if (selectedPlatform === 'phonepe') {
+      if (isAndroid) {
+        window.location.href = 'intent://#Intent;package=com.phonepe.app;end';
+      } else {
+        window.location.href = 'phonepe://';
+      }
+    } else if (selectedPlatform === 'gpay') {
+      if (isAndroid) {
+        window.location.href = 'intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end';
+      } else {
+        window.location.href = 'gpay://';
+      }
+    } else if (selectedPlatform === 'paytm') {
+      if (isAndroid) {
+        window.location.href = 'intent://#Intent;package=net.one97.paytm;end';
+      } else {
+        window.location.href = 'paytmmp://';
+      }
+    } else {
+      window.location.href = 'upi://';
+    }
   };
 
   const handleDownloadQr = async () => {
@@ -720,7 +755,60 @@ export default function QrModal({
             <span>Pay {amount ? `₹${amount}` : 'Now'} with {currentPlatform.name}</span>
           </button>
 
-          {/* BANK LIMIT HELPER CARD */}
+          {/* Quick Pay to Mobile Number button (Bypasses PhonePe's ₹2,000 gallery scan limit) */}
+          {recipient.phone && (
+            <button
+              type="button"
+              onClick={handlePayViaPhone}
+              style={{
+                width: '100%',
+                backgroundColor: 'rgba(0, 122, 255, 0.08)',
+                color: 'var(--ios-blue)',
+                fontWeight: 700,
+                fontSize: '13.5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '11px 16px',
+                borderRadius: '14px',
+                border: '1.5px solid rgba(0, 122, 255, 0.25)',
+                cursor: 'pointer',
+                marginTop: '4px',
+                transition: 'all 0.2s ease'
+              }}
+              className="clickable"
+              title="Copy mobile number and open PhonePe to pay without any ₹2,000 gallery limit"
+            >
+              <MaterialIcon name="phone_iphone" size={17} color="var(--ios-blue)" />
+              <span>Pay to Mobile No. ({recipient.displayPhone || recipient.phone})</span>
+            </button>
+          )}
+
+          {/* Copied Toast Alert */}
+          {copiedPhoneToast && (
+            <div
+              style={{
+                width: '100%',
+                background: 'rgba(52, 199, 89, 0.12)',
+                border: '1px solid var(--ios-green)',
+                borderRadius: '12px',
+                padding: '8px 12px',
+                fontSize: '11.5px',
+                color: 'var(--ios-green)',
+                fontWeight: 700,
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <MaterialIcon name="check_circle" size={16} color="var(--ios-green)" />
+              <span>Copied {recipient.phone}! In {currentPlatform.name}, tap "To Mobile Number" and paste.</span>
+            </div>
+          )}
+
+          {/* GALLERY / BANK LIMIT HELPER CARD */}
           <div
             style={{
               width: '100%',
@@ -734,22 +822,22 @@ export default function QrModal({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 700, color: 'var(--ios-blue)', marginBottom: '3px' }}>
               <MaterialIcon name="info" size={15} color="var(--ios-blue)" />
-              <span>App showing ₹200 or transaction limit?</span>
+              <span>PhonePe ₹2,000 Gallery QR Limit Note</span>
             </div>
             <p style={{ fontSize: '11px', color: 'var(--ios-text-secondary)', lineHeight: 1.35, margin: '0 0 5px 0' }}>
-              Bank engines sometimes restrict web browser links. You can bypass it with 100% success (up to ₹1 Lakh limit):
+              PhonePe restricts QR codes scanned from gallery photos to ₹2,000 max. For Rent (₹4,500+) or amounts above ₹2,000:
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--ios-text-primary)' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                <span style={{ fontWeight: 800, color: 'var(--ios-blue)' }}>1.</span>
-                <span>Tap <strong>Save QR to Photos</strong> above → Open {currentPlatform.name} → Tap QR scanner & pick from gallery.</span>
-              </div>
               {recipient.phone && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                  <span style={{ fontWeight: 800, color: 'var(--ios-green)' }}>2.</span>
-                  <span>Tap <strong>Copy</strong> on Mobile Number → In {currentPlatform.name}, choose <strong>To Mobile Number</strong>.</span>
+                  <span style={{ fontWeight: 800, color: 'var(--ios-green)' }}>1.</span>
+                  <span>Tap <strong>Pay to Mobile No.</strong> above → In {currentPlatform.name}, select <strong>To Mobile Number</strong> (Up to ₹1 Lakh limit).</span>
                 </div>
               )}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ fontWeight: 800, color: 'var(--ios-blue)' }}>2.</span>
+                <span>Tap <strong>Pay Now with {currentPlatform.name}</strong> directly above to open without gallery scan restrictions.</span>
+              </div>
             </div>
           </div>
 
