@@ -110,10 +110,11 @@ export default function App() {
     });
   }, [syncToSupabase]);
 
-  // Merge incoming cloud data with local state to prevent message loss
+  // Merge incoming cloud data with local state to prevent message/bill loss
   const mergeIncomingData = useCallback((incoming, prev) => {
     if (!incoming) return prev;
 
+    // Merge messages by ID (union of both)
     const messageMap = new Map();
     (incoming.messages || []).forEach((m) => messageMap.set(m.id, m));
     (prev.messages || []).forEach((m) => {
@@ -121,14 +122,24 @@ export default function App() {
         messageMap.set(m.id, m);
       }
     });
-
     const mergedMessages = Array.from(messageMap.values()).sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
 
+    // Merge bills by ID — prefer local version if newer (prevents newly added bills being wiped)
+    const billMap = new Map();
+    (incoming.bills || []).forEach((b) => billMap.set(b.id, b));
+    (prev.bills || []).forEach((b) => {
+      if (!billMap.has(b.id)) {
+        billMap.set(b.id, b); // preserve locally added bills not yet in cloud
+      }
+    });
+    const mergedBills = Array.from(billMap.values());
+
     return {
       ...incoming,
-      messages: mergedMessages
+      messages: mergedMessages,
+      bills: mergedBills
     };
   }, []);
 

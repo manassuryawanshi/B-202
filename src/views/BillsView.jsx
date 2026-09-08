@@ -715,7 +715,7 @@ export default function BillsView({
             </div>
 
             <form onSubmit={handleCreateBill}>
-              {/* Auto-bill notice */}
+              {/* Info notice */}
               <div
                 style={{
                   background: 'var(--ios-card-inset)',
@@ -728,7 +728,7 @@ export default function BillsView({
                   lineHeight: 1.4
                 }}
               >
-                <strong style={{ color: 'var(--ios-text-primary)' }}>1st of Month Auto-Bills:</strong> Flat Rent (₹27,000) & Washing Machine (₹500) appear automatically on the 1st without duplicates.
+                <strong style={{ color: 'var(--ios-text-primary)' }}>One bill per type per month.</strong> Rent, Electricity & Washing Machine can only be added once per month.
               </div>
 
               {/* Category selector (Electricity, Rent, Washing Machine, Other Bills) */}
@@ -739,9 +739,10 @@ export default function BillsView({
                     const currentMonthYear = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
                     const rentAlreadyExists = bills.some((b) => b.type === 'rent' && (b.monthYear === currentMonthYear || b.title.toLowerCase().includes('rent')));
                     const wmAlreadyExists = bills.some((b) => b.type === 'washing-machine' && (b.monthYear === currentMonthYear || b.title.toLowerCase().includes('washing')));
+                    const elecAlreadyExists = bills.some((b) => b.type === 'electricity' && b.monthYear === currentMonthYear);
 
                     return [
-                      { id: 'electricity', label: 'Electricity', iconName: 'bolt', disabled: false },
+                      { id: 'electricity', label: 'Electricity', iconName: 'bolt', disabled: elecAlreadyExists, sublabel: elecAlreadyExists ? 'Active' : '' },
                       { id: 'rent', label: 'Rent', iconName: 'home', disabled: rentAlreadyExists, sublabel: rentAlreadyExists ? 'Active' : '' },
                       { id: 'washing-machine', label: 'Washing', iconName: 'local_laundry_service', disabled: wmAlreadyExists, sublabel: wmAlreadyExists ? 'Active' : '' },
                       { id: 'other', label: 'Other', iconName: 'currency_rupee', disabled: false }
