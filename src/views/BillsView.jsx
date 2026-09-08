@@ -265,14 +265,31 @@ export default function BillsView({
         </div>
 
         <button
-          className="ios-btn ios-btn-primary ios-btn-sm"
           onClick={() => {
             playHapticChime('click');
             setShowAddModal(true);
           }}
           id="add-bill-btn"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '8px 14px',
+            height: '36px',
+            borderRadius: '18px',
+            background: 'var(--ios-blue)',
+            color: '#fff',
+            border: 'none',
+            fontSize: '12.5px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 8px rgba(0,122,255,0.3)',
+            WebkitTapHighlightColor: 'transparent'
+          }}
         >
-          <MaterialIcon name="add" size={16} /> Add Bill
+          <MaterialIcon name="add" size={15} color="#fff" /> Add Bill
         </button>
       </div>
 
