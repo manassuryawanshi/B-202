@@ -110,6 +110,28 @@ export default function App() {
     });
   }, [syncToSupabase]);
 
+  // Merge incoming cloud data with local state to prevent message loss
+  const mergeIncomingData = useCallback((incoming, prev) => {
+    if (!incoming) return prev;
+
+    const messageMap = new Map();
+    (incoming.messages || []).forEach((m) => messageMap.set(m.id, m));
+    (prev.messages || []).forEach((m) => {
+      if (!messageMap.has(m.id)) {
+        messageMap.set(m.id, m);
+      }
+    });
+
+    const mergedMessages = Array.from(messageMap.values()).sort(
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
+
+    return {
+      ...incoming,
+      messages: mergedMessages
+    };
+  }, []);
+
   // Fetch latest database state from server or Supabase Cloud
   const fetchServerData = useCallback(async () => {
     if (isSupabaseConfigured && supabase) {
@@ -121,7 +143,7 @@ export default function App() {
           .single();
 
         if (row && row.data) {
-          setData(row.data);
+          setData((prev) => mergeIncomingData(row.data, prev));
           if (currentUser) {
             const freshUser = row.data.members?.find((m) => m.id === currentUser.id);
             if (freshUser) setCurrentUser(freshUser);
@@ -140,27 +162,15 @@ export default function App() {
       const res = await fetch('/api/data');
       if (res.ok) {
         const serverDb = await res.json();
-        setData((prev) => ({
-          ...prev,
-          members: serverDb.members || prev.members,
-          owner: serverDb.owner || prev.owner,
-          areas: serverDb.areas || prev.areas,
-          bills: serverDb.bills || prev.bills,
-          choreHistory: serverDb.choreHistory || prev.choreHistory,
-          messages: serverDb.messages || prev.messages,
-          notifications: serverDb.notifications || prev.notifications
-        }));
+        setData((prev) => mergeIncomingData(serverDb, prev));
 
-        // Keep currentUser updated with server member profile
         if (currentUser) {
           const freshUser = serverDb.members?.find((m) => m.id === currentUser.id);
           if (freshUser) setCurrentUser(freshUser);
         }
       }
-    } catch (err) {
-      // Offline fallback
-    }
-  }, [currentUser?.id]);
+    } catch {}
+  }, [currentUser?.id, mergeIncomingData]);
 
   useEffect(() => {
     fetchServerData();
@@ -175,19 +185,26 @@ export default function App() {
           { event: '*', schema: 'public', table: 'flat_state', filter: 'id=eq.b202' },
           (payload) => {
             if (payload?.new?.data) {
-              setData(payload.new.data);
+              setData((prev) => mergeIncomingData(payload.new.data, prev));
             }
           }
         )
         .subscribe();
     }
 
-    const interval = setInterval(fetchServerData, 12000);
+    // Refresh when user returns to app tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchServerData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
-      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (channel) supabase?.removeChannel(channel);
     };
-  }, [fetchServerData]);
+  }, [fetchServerData, mergeIncomingData]);
 
   // Persist local backup & Supabase cloud sync
   useEffect(() => {
