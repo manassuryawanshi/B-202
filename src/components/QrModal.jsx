@@ -44,21 +44,20 @@ export default function QrModal({
     }
   }, [recipient]);
 
-  // Resolves the optimal VPA for the selected platform
+  // Resolves the optimal VPA for the selected platform (works for all flatmates)
   const getPlatformVpa = (baseUpi, platform) => {
     if (!baseUpi) return '';
     const trimmed = baseUpi.trim();
-    const phoneMatch = trimmed.match(/^(\d{10})(@[a-zA-Z0-9.-]+)?$/);
+    // If it has a verified bank handle (and not generic @upi), respect it for all flatmates
+    if (trimmed.includes('@') && !trimmed.toLowerCase().endsWith('@upi')) {
+      return trimmed;
+    }
+    // If it's a 10-digit phone number or ends with @upi
+    const phoneMatch = trimmed.match(/^(\d{10})(@upi)?$/i);
     if (phoneMatch) {
       const phone = phoneMatch[1];
-      if (platform === 'phonepe') {
-        // PhonePe primary handle is phone@ybl
-        return `${phone}@ybl`;
-      }
-      if (platform === 'paytm') {
-        // Paytm primary handle is phone@paytm
-        return `${phone}@paytm`;
-      }
+      if (platform === 'phonepe') return `${phone}@ybl`;
+      if (platform === 'paytm') return `${phone}@paytm`;
     }
     return trimmed;
   };
@@ -822,21 +821,25 @@ export default function QrModal({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 700, color: 'var(--ios-blue)', marginBottom: '3px' }}>
               <MaterialIcon name="info" size={15} color="var(--ios-blue)" />
-              <span>PhonePe ₹2,000 Gallery QR Limit Note</span>
+              <span>Universal Payment Guide (All Flatmates & Bills)</span>
             </div>
             <p style={{ fontSize: '11px', color: 'var(--ios-text-secondary)', lineHeight: 1.35, margin: '0 0 5px 0' }}>
-              PhonePe restricts QR codes scanned from gallery photos to ₹2,000 max. For Rent (₹4,500+) or amounts above ₹2,000:
+              Works for all 5 flatmates. To pay any amount without PhonePe’s ₹2,000 gallery photo limit:
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--ios-text-primary)' }}>
               {recipient.phone && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
                   <span style={{ fontWeight: 800, color: 'var(--ios-green)' }}>1.</span>
-                  <span>Tap <strong>Pay to Mobile No.</strong> above → In {currentPlatform.name}, select <strong>To Mobile Number</strong> (Up to ₹1 Lakh limit).</span>
+                  <span>Tap <strong>Pay to Mobile No.</strong> above → Opens {currentPlatform.name} with number copied → Choose <strong>To Mobile Number</strong> (Up to ₹1 Lakh limit).</span>
                 </div>
               )}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
                 <span style={{ fontWeight: 800, color: 'var(--ios-blue)' }}>2.</span>
-                <span>Tap <strong>Pay Now with {currentPlatform.name}</strong> directly above to open without gallery scan restrictions.</span>
+                <span>Tap <strong>Pay Now with {currentPlatform.name}</strong> to launch direct app intent (bypasses gallery QR scan limits).</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ fontWeight: 800, color: 'var(--ios-text-secondary)' }}>3.</span>
+                <span>Tap the <strong>edit pencil</strong> next to UPI ID above if you or a flatmate want to update their VPA handle.</span>
               </div>
             </div>
           </div>
