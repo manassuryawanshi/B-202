@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1c1e" />
+      <stop offset="50%" stop-color="#0a84ff" />
+      <stop offset="100%" stop-color="#0040dd" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+  <!-- Apple style squircle -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" />
+  <rect x="16" y="16" width="480" height="240" rx="108" fill="url(#glowGrad)" />
+  
+  <!-- Subtle inner border -->
+  <rect x="18" y="18" width="476" height="476" rx="106" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="3" />
+
+  <!-- Flat Icon Motif -->
+  <g filter="url(#dropShadow)">
+    <!-- House outline -->
+    <path d="M256 120 L370 216 V350 C370 361 361 370 350 370 H162 C151 370 142 361 142 350 V216 Z" fill="#ffffff" fill-opacity="0.15" stroke="#ffffff" stroke-width="12" stroke-linejoin="round" />
+    
+    <!-- Door -->
+    <rect x="226" y="270" width="60" height="100" rx="12" fill="#ffffff" fill-opacity="0.9" />
+    
+    <!-- Window with 4 panes -->
+    <rect x="176" y="220" width="40" height="40" rx="6" fill="#ffffff" fill-opacity="0.8" />
+    <rect x="296" y="220" width="40" height="40" rx="6" fill="#ffffff" fill-opacity="0.8" />
+    
+    <!-- Sparkle / Star for Skyra -->
+    <path d="M370 140 L378 158 L396 166 L378 174 L370 192 L362 174 L344 166 L362 158 Z" fill="#30d158" />
+  </g>
+
+  <!-- Typography B-202 -->
+  <text x="256" y="440" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="52" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="2">B-202 SKYRA</text>
+</svg>

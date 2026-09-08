@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bgGrad192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1c1e" />
+      <stop offset="50%" stop-color="#0a84ff" />
+      <stop offset="100%" stop-color="#0040dd" />
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="180" height="180" rx="42" fill="url(#bgGrad192)" />
+  <rect x="7" y="7" width="178" height="178" rx="41" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5" />
+  
+  <path d="M96 46 L140 82 V132 C140 136 136 140 132 140 H60 C56 140 52 136 52 132 V82 Z" fill="#ffffff" fill-opacity="0.2" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" />
+  <rect x="85" y="102" width="22" height="38" rx="4" fill="#ffffff" />
+  <text x="96" y="166" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="20" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1">B-202</text>
+</svg>
