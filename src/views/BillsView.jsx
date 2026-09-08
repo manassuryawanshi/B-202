@@ -148,90 +148,89 @@ export default function BillsView({
     }
   };
 
-  const handleCreateBill = async (e) => {
+  const handleCreateBill = (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    let finalTitle = '';
-    let calculatedTotal = parseFloat(newTotalAmount) || 0;
-    let sharesObj = null;
-
-    if (newCategory === 'electricity') {
-      finalTitle = 'Electricity Bill';
-      sharesObj = { ...newCustomShares };
-      calculatedTotal = Object.values(sharesObj).reduce((a, b) => a + (Number(b) || 0), 0);
-    } else if (newCategory === 'rent') {
-      finalTitle = 'Flat Rent';
-      calculatedTotal = 27000;
-      sharesObj = {
-        manas: 9000,
-        rohan: 4500,
-        shubham: 4500,
-        ujwal: 4500,
-        prathamesh: 4500
-      };
-    } else if (newCategory === 'washing-machine') {
-      finalTitle = 'Washing Machine Bill';
-      calculatedTotal = 500;
-      sharesObj = {
-        manas: 100,
-        rohan: 100,
-        shubham: 100,
-        ujwal: 100,
-        prathamesh: 100
-      };
-    } else {
-      // 'other'
-      finalTitle = newTitle.trim() || 'Other Flat Bill';
-      const customSum = Object.values(newOtherCustomShares).reduce((a, b) => a + (Number(b) || 0), 0);
-      if (customSum > 0) {
-        sharesObj = { ...newOtherCustomShares };
-        calculatedTotal = customSum;
-      } else {
-        const total = parseFloat(newTotalAmount) || 0;
-        calculatedTotal = total;
-        const each = Math.round(total / (members.length || 5));
-        sharesObj = {};
-        members.forEach((m) => {
-          sharesObj[m.id] = each;
-        });
-      }
-    }
-
-    const payload = {
-      title: finalTitle,
-      type: newCategory,
-      totalAmount: calculatedTotal,
-      dueDate: newDueDate,
-      remarks: newRemarks.trim(),
-      shares: sharesObj,
-      creatorId: currentUser?.id || 'manas',
-      creatorName: currentUser?.name || 'Flatmate'
-    };
-
     try {
-      const res = await fetch('/api/bills/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      let finalTitle = '';
+      let calculatedTotal = parseFloat(newTotalAmount) || 0;
+      let sharesObj = {};
+      let recipientName = currentUser?.name || 'Flatmate';
+      let recipientUpi = currentUser?.upiId || '8010616851@upi';
+
+      if (newCategory === 'electricity') {
+        finalTitle = 'Electricity Bill';
+        sharesObj = { ...newCustomShares };
+        calculatedTotal = Object.values(sharesObj).reduce((a, b) => a + (Number(b) || 0), 0);
+        recipientName = 'Electricity Board (MSEDCL)';
+        recipientUpi = '8010616851@upi';
+      } else if (newCategory === 'rent') {
+        finalTitle = 'Flat Rent';
+        calculatedTotal = 27000;
+        sharesObj = { manas: 9000, rohan: 4500, shubham: 4500, ujwal: 4500, prathamesh: 4500 };
+        recipientName = 'Ujwal (Flat Rent Coordinator)';
+        recipientUpi = '8669240763@upi';
+      } else if (newCategory === 'washing-machine') {
+        finalTitle = 'Washing Machine Bill';
+        calculatedTotal = 500;
+        sharesObj = { manas: 100, rohan: 100, shubham: 100, ujwal: 100, prathamesh: 100 };
+        recipientName = 'Furlenco / Rentomojo';
+        recipientUpi = '8237580043@upi';
+      } else {
+        // 'other'
+        finalTitle = newTitle.trim() || 'Other Flat Bill';
+        const customSum = Object.values(newOtherCustomShares).reduce((a, b) => a + (Number(b) || 0), 0);
+        if (customSum > 0) {
+          sharesObj = { ...newOtherCustomShares };
+          calculatedTotal = customSum;
+        } else {
+          const total = parseFloat(newTotalAmount) || 0;
+          calculatedTotal = total;
+          const each = Math.round(total / (members.length || 5));
+          members.forEach((m) => { sharesObj[m.id] = each; });
+        }
+      }
+
+      // Build initial payments object
+      const initialPayments = {};
+      members.forEach((m) => {
+        initialPayments[m.id] = {
+          paid: false,
+          amount: sharesObj[m.id] || Math.round(calculatedTotal / members.length),
+          date: null,
+          utr: ''
+        };
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        playHapticChime('success');
-        confetti({ particleCount: 50, spread: 60 });
-        onAddNewBill(data.bill);
-        setShowAddModal(false);
-        setNewTitle('');
-        setNewRemarks('');
-        setNewTotalAmount('');
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        alert(errJson.error || 'Could not save bill to server');
-      }
+      const currentMonthYear = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+      const newBill = {
+        id: `bill-${Date.now()}`,
+        title: finalTitle,
+        type: newCategory,
+        totalAmount: calculatedTotal,
+        dueDate: newDueDate,
+        monthYear: currentMonthYear,
+        remarks: newRemarks.trim(),
+        creatorId: currentUser?.id || 'manas',
+        recipientName,
+        recipientUpi,
+        isCustomSplit: Object.keys(sharesObj).length > 0,
+        shares: sharesObj,
+        payments: initialPayments
+      };
+
+      playHapticChime('success');
+      confetti({ particleCount: 50, spread: 60 });
+      onAddNewBill(newBill);
+      setShowAddModal(false);
+      setNewTitle('');
+      setNewRemarks('');
+      setNewTotalAmount('');
     } catch (err) {
       console.error(err);
-      alert('Error creating bill');
+      alert('Error creating bill. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
