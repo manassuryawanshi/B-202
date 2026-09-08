@@ -692,7 +692,8 @@ export default function BillsView({
                       name: bill.recipientName,
                       upiId: bill.recipientUpi,
                       defaultAmount: myShare,
-                      title: bill.title
+                      title: bill.title,
+                      billId: bill.id
                     });
                   }}
                   id={`qr-bill-${bill.id}`}

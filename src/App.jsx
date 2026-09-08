@@ -1069,6 +1069,8 @@ export default function App() {
         isOpen={!!qrRecipient}
         onClose={() => setQrRecipient(null)}
         recipient={qrRecipient}
+        currentUser={currentUser}
+        onMarkBillPaid={handleMarkBillPaid}
       />
     </div>
   );
