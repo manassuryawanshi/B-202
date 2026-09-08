@@ -24,7 +24,7 @@ const TabIcons = {
   )
 };
 
-export default function TabBar({ activeTab, onTabChange, unreadMessages = 0, pendingBills = 0 }) {
+export default function TabBar({ activeTab, onTabChange, unreadMessages = 0, pendingBills = 0, hidden = false }) {
   const tabs = [
     { id: 'dashboard', label: 'Home' },
     { id: 'chores', label: 'Chores' },
@@ -42,11 +42,14 @@ export default function TabBar({ activeTab, onTabChange, unreadMessages = 0, pen
         left: 0,
         right: 0,
         zIndex: 50,
-        pointerEvents: 'none',
+        pointerEvents: hidden ? 'none' : 'none',
         display: 'flex',
         justifyContent: 'center',
         paddingBottom: 'calc(env(safe-area-inset-bottom, 6px) + 6px)',
-        paddingTop: '4px'
+        paddingTop: '4px',
+        transform: hidden ? 'translateY(120px)' : 'translateY(0)',
+        opacity: hidden ? 0 : 1,
+        transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease'
       }}
     >
       {/* Apple Floating Pill Nav Container */}

@@ -78,6 +78,7 @@ export default function App() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isNudgeOpen, setIsNudgeOpen] = useState(false);
   const [qrRecipient, setQrRecipient] = useState(null);
+  const [isChatTyping, setIsChatTyping] = useState(false);
 
   // Sync state to Supabase Cloud if configured
   const syncToSupabase = useCallback(async (updatedData) => {
@@ -814,6 +815,7 @@ export default function App() {
             onReactMessage={handleReactMessage}
             onSendPoll={handleSendPoll}
             onVotePoll={handleVotePoll}
+            onTypingChange={(typing) => setIsChatTyping(typing)}
           />
         )}
       </main>
@@ -821,10 +823,14 @@ export default function App() {
       {/* Apple Floating Island Tab Bar */}
       <TabBar
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
+        onTabChange={(tab) => {
+          setIsChatTyping(false);
+          setActiveTab(tab);
+        }}
         pendingChoresCount={pendingChoresForMe}
         pendingBillsCount={pendingBillsForMe}
         unreadMessagesCount={0}
+        hidden={isChatTyping}
       />
 
       {/* Profile & Settings Modal */}
