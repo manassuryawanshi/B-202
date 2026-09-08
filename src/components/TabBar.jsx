@@ -42,24 +42,29 @@ export default function TabBar({ activeTab, onTabChange, unreadMessages = 0, pen
         left: 0,
         right: 0,
         zIndex: 50,
+        pointerEvents: 'none',
         display: 'flex',
         justifyContent: 'center',
-        background: 'var(--ios-nav-bg, rgba(255, 255, 255, 0.94))',
-        backdropFilter: 'blur(25px)',
-        WebkitBackdropFilter: 'blur(25px)',
-        borderTop: '0.5px solid var(--ios-tabbar-border, rgba(0, 0, 0, 0.12))',
-        boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.03)'
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 6px) + 6px)',
+        paddingTop: '4px'
       }}
     >
-      {/* Apple Tab Bar Container */}
+      {/* Apple Floating Pill Nav Container */}
       <div
         style={{
-          maxWidth: '600px',
-          width: '100%',
-          padding: '6px 8px calc(env(safe-area-inset-bottom, 16px) + 2px) 8px',
+          pointerEvents: 'auto',
+          maxWidth: '500px',
+          width: 'calc(100% - 24px)',
+          background: 'var(--ios-nav-bg, rgba(255, 255, 255, 0.92))',
+          backdropFilter: 'blur(25px)',
+          WebkitBackdropFilter: 'blur(25px)',
+          borderRadius: '32px',
+          padding: '4px 6px',
           display: 'flex',
           justifyContent: 'space-around',
-          alignItems: 'center'
+          alignItems: 'center',
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
+          border: '1px solid var(--ios-tabbar-border, rgba(0, 0, 0, 0.08))'
         }}
       >
         {tabs.map((tab) => {
@@ -82,13 +87,14 @@ export default function TabBar({ activeTab, onTabChange, unreadMessages = 0, pen
                 justifyContent: 'center',
                 flex: 1,
                 minWidth: 0,
-                padding: '4px 2px 2px 2px',
+                padding: '5px 2px 4px 2px',
                 border: 'none',
-                background: 'transparent',
+                background: isActive ? 'var(--ios-active-pill-bg, #EBF3FF)' : 'transparent',
+                borderRadius: '22px',
                 cursor: 'pointer',
                 position: 'relative',
-                color: isActive ? 'var(--ios-blue, #007AFF)' : 'var(--ios-text-tertiary, #8E8E93)',
-                transition: 'all 0.15s ease',
+                color: isActive ? 'var(--ios-blue, #007AFF)' : 'var(--ios-text-tertiary, #9CA3AF)',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                 WebkitTapHighlightColor: 'transparent'
               }}
             >
