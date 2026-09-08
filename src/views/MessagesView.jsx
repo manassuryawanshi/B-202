@@ -12,10 +12,9 @@ export default function MessagesView({
   onReactMessage,
   onSendPoll,
   onVotePoll,
-  onTypingChange
+  onBack
 }) {
   const [inputText, setInputText] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
@@ -28,38 +27,23 @@ export default function MessagesView({
   const messagesEndRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  // Quick suggestion chips
-  const quickChips = [
-    { text: 'Paid my electricity bill share.', cat: 'bills' },
-    { text: 'Paid my rent share to Ujwal.', cat: 'bills' },
-    { text: 'Cleaned the bathroom today.', cat: 'chores' },
-    { text: 'Cleaned the balcony.', cat: 'chores' },
-    { text: 'Going to the market, let me know if anyone needs anything.', cat: 'general' }
-  ];
-
   // Oldest at top, newest at bottom
   const sortedMessages = useMemo(() => {
     return [...messages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   }, [messages]);
 
-  // Category filter
-  const categoryMessages = useMemo(() => {
-    if (filterCategory === 'all') return sortedMessages;
-    return sortedMessages.filter((m) => m.category === filterCategory);
-  }, [sortedMessages, filterCategory]);
-
   // Search matches array
   const searchMatches = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
-    return categoryMessages.filter((m) => {
+    return sortedMessages.filter((m) => {
       const matchText = (m.text || '').toLowerCase().includes(q);
       const matchSender = (m.senderName || '').toLowerCase().includes(q);
       const matchPollQ = m.poll?.question?.toLowerCase().includes(q);
       const matchPollOpts = m.poll?.options?.some((o) => o.text.toLowerCase().includes(q));
       return matchText || matchSender || matchPollQ || matchPollOpts;
     });
-  }, [categoryMessages, searchQuery]);
+  }, [sortedMessages, searchQuery]);
 
   // Reset active match index when query changes
   useEffect(() => {
@@ -77,10 +61,10 @@ export default function MessagesView({
     if (!showSearch) {
       scrollToBottom();
     }
-  }, [messages.length, filterCategory, showSearch]);
+  }, [messages.length, showSearch]);
 
   const scrollToMessage = (msgId) => {
-    const el = document.getElementById(`whatsapp-msg-${msgId}`);
+    const el = document.getElementById(`chat-msg-${msgId}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -114,11 +98,6 @@ export default function MessagesView({
       category: 'general'
     });
     setInputText('');
-  };
-
-  const handleChipClick = (chip) => {
-    playHapticChime('click');
-    setInputText(chip.text);
   };
 
   // Poll Handlers
@@ -192,41 +171,54 @@ export default function MessagesView({
     });
   };
 
+  const memberNamesList = members.map((m) => m.name).join(', ');
+
   return (
     <div
-      className="view-content"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 150px)',
-        minHeight: '560px',
-        padding: '0 4px',
+        height: '100dvh',
+        width: '100%',
+        maxWidth: '600px',
+        margin: '0 auto',
+        backgroundColor: 'var(--ios-bg)',
         position: 'relative'
       }}
     >
-      {/* IN-LINE HEADER: Search, Poll, and Category Chips in ONE Row */}
-      <div
+      {/* IMMERSIVE CHAT HEADER with Back Button at Top Left */}
+      <header
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          background: 'var(--ios-nav-bg, rgba(255, 255, 255, 0.94))',
+          backdropFilter: 'blur(25px)',
+          WebkitBackdropFilter: 'blur(25px)',
+          borderBottom: '0.5px solid var(--ios-card-border)',
+          paddingTop: 'max(calc(env(safe-area-inset-top, 44px) + 6px), 18px)',
+          paddingBottom: '10px',
+          paddingLeft: '12px',
+          paddingRight: '12px',
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '4px 2px 8px 2px',
+          justifyContent: 'space-between',
+          gap: '8px',
           flexShrink: 0
         }}
       >
         {showSearch ? (
-          /* WhatsApp Style Search Bar with Match Navigation (1 of 5, ▲, ▼, ✕) */
+          /* Search Bar Mode with Match Navigation */
           <div
             style={{
               flex: 1,
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              background: 'var(--ios-card)',
+              background: 'var(--ios-card-inset, #F3F4F6)',
               border: '1px solid var(--ios-card-border)',
               borderRadius: '20px',
-              padding: '3px 8px 3px 10px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+              padding: '4px 8px 4px 10px',
               animation: 'modalFadeIn 0.15s ease-out'
             }}
           >
@@ -239,11 +231,11 @@ export default function MessagesView({
                 border: 'none',
                 background: 'transparent',
                 outline: 'none',
-                fontSize: '13.5px',
+                fontSize: '14px',
                 color: 'var(--ios-text-primary)',
-                padding: '4px 0'
+                padding: '3px 0'
               }}
-              placeholder="Search words or names..."
+              placeholder="Search words..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus
@@ -253,7 +245,7 @@ export default function MessagesView({
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span
                   style={{
-                    fontSize: '11px',
+                    fontSize: '11.5px',
                     fontWeight: 700,
                     color: searchMatches.length > 0 ? 'var(--ios-blue)' : 'var(--ios-text-tertiary)',
                     whiteSpace: 'nowrap',
@@ -272,7 +264,7 @@ export default function MessagesView({
                         background: 'none',
                         border: 'none',
                         cursor: 'pointer',
-                        padding: '2px 4px',
+                        padding: '2px',
                         color: 'var(--ios-text-primary)',
                         display: 'flex',
                         alignItems: 'center'
@@ -288,7 +280,7 @@ export default function MessagesView({
                         background: 'none',
                         border: 'none',
                         cursor: 'pointer',
-                        padding: '2px 4px',
+                        padding: '2px',
                         color: 'var(--ios-text-primary)',
                         display: 'flex',
                         alignItems: 'center'
@@ -315,148 +307,180 @@ export default function MessagesView({
                 color: 'var(--ios-text-secondary)',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '3px'
+                padding: '2px'
               }}
             >
-              <MaterialIcon name="close" size={17} />
+              <MaterialIcon name="close" size={18} />
             </button>
           </div>
         ) : (
-          /* Normal In-line Row: [Search Icon] [+ Poll] | [All] [Bills & Rent] [Chores] [Urgent] */
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              width: '100%',
-              overflowX: 'auto',
-              scrollbarWidth: 'none',
-              paddingBottom: '2px'
-            }}
-            className="no-scrollbar"
-          >
-            {/* Search Trigger */}
-            <button
-              onClick={() => setShowSearch(true)}
-              className="nav-icon-btn"
-              style={{
-                width: '32px',
-                height: '32px',
-                flexShrink: 0,
-                borderRadius: '16px'
-              }}
-              title="Search Chat"
-            >
-              <MaterialIcon name="search" size={16} />
-            </button>
+          /* Normal WhatsApp/iOS Chat Header */
+          <>
+            {/* Left: Back Button + Group Info */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              {/* Back button just like in WhatsApp */}
+              <button
+                type="button"
+                onClick={() => {
+                  playHapticChime('click');
+                  onBack?.();
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '2px',
+                  color: 'var(--ios-blue)',
+                  padding: '4px 2px',
+                  marginRight: '2px',
+                  WebkitTapHighlightColor: 'transparent'
+                }}
+                title="Go Back"
+              >
+                <MaterialIcon name="arrow_back_ios_new" size={20} color="var(--ios-blue)" />
+              </button>
 
-            {/* Create Poll Button */}
-            <button
-              onClick={() => {
-                playHapticChime('click');
-                setShowPollModal(true);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '5px 10px',
-                borderRadius: '16px',
-                background: 'var(--ios-blue-light, #EFF6FF)',
-                border: '1px solid var(--ios-blue)',
-                color: 'var(--ios-blue)',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                flexShrink: 0
-              }}
-            >
-              <MaterialIcon name="poll" size={14} color="var(--ios-blue)" /> Poll
-            </button>
+              {/* Group Avatar */}
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #007AFF 0%, #4338CA 100%)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  boxShadow: '0 2px 6px rgba(0, 122, 255, 0.25)',
+                  flexShrink: 0
+                }}
+              >
+                B202
+              </div>
 
-            <div style={{ width: '1px', height: '18px', background: 'var(--ios-card-border)', margin: '0 2px', flexShrink: 0 }} />
+              {/* Title & Members Subtitle */}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: '16px',
+                    fontWeight: 800,
+                    color: 'var(--ios-text-primary)',
+                    letterSpacing: '-0.3px',
+                    lineHeight: 1.2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
+                >
+                  Flat B-202
+                </div>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--ios-text-secondary)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: 1.2
+                  }}
+                >
+                  {memberNamesList}
+                </div>
+              </div>
+            </div>
 
-            {/* Category Filter Chips */}
-            <button
-              onClick={() => setFilterCategory('all')}
-              className={`flat-filter-pill ${filterCategory === 'all' ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: '11.5px', flexShrink: 0 }}
-            >
-              All ({messages.length})
-            </button>
-            <button
-              onClick={() => setFilterCategory('bills')}
-              className={`flat-filter-pill ${filterCategory === 'bills' ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: '11.5px', flexShrink: 0 }}
-            >
-              Bills & Rent
-            </button>
-            <button
-              onClick={() => setFilterCategory('chores')}
-              className={`flat-filter-pill ${filterCategory === 'chores' ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: '11.5px', flexShrink: 0 }}
-            >
-              Chores
-            </button>
-            <button
-              onClick={() => setFilterCategory('urgent')}
-              className={`flat-filter-pill ${filterCategory === 'urgent' ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: '11.5px', flexShrink: 0 }}
-            >
-              Urgent
-            </button>
-          </div>
+            {/* Right: Search & Create Poll */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => setShowSearch(true)}
+                className="nav-icon-btn"
+                style={{ width: '34px', height: '34px' }}
+                title="Search Messages"
+              >
+                <MaterialIcon name="search" size={18} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playHapticChime('click');
+                  setShowPollModal(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  borderRadius: '18px',
+                  background: 'var(--ios-blue-light, #EFF6FF)',
+                  border: '1px solid var(--ios-blue)',
+                  color: 'var(--ios-blue)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+                title="Create Poll"
+              >
+                <MaterialIcon name="poll" size={15} color="var(--ios-blue)" /> Poll
+              </button>
+            </div>
+          </>
         )}
-      </div>
+      </header>
 
-      {/* WhatsApp Immersive Message Feed Canvas */}
+      {/* Message Feed (Original Clean Apple Colors & Styling) */}
       <div
-        className="whatsapp-chat-canvas apple-sleek-scroll"
+        className="apple-sleek-scroll"
         style={{
           flex: 1,
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '10px',
-          padding: '12px 10px 14px 10px'
+          gap: '12px',
+          padding: '14px 16px',
+          backgroundColor: 'var(--ios-bg)'
         }}
       >
-        {categoryMessages.length === 0 ? (
+        {sortedMessages.length === 0 ? (
           <div style={{ textAlign: 'center', margin: 'auto', color: 'var(--ios-text-tertiary)' }}>
             <MaterialIcon name="chat" size={40} style={{ opacity: 0.3, marginBottom: '8px' }} />
-            <div style={{ fontSize: '13px' }}>No messages in this filter.</div>
+            <div style={{ fontSize: '14px' }}>No messages yet. Say hi!</div>
           </div>
         ) : (
-          categoryMessages.map((msg, idx) => {
+          sortedMessages.map((msg, idx) => {
             const sender = members.find((m) => m.id === msg.senderId);
             const isMe = msg.senderId === currentUser?.id;
 
             // Date divider check
             const currentDateLabel = getDateLabel(msg.timestamp);
-            const prevMessage = idx > 0 ? categoryMessages[idx - 1] : null;
+            const prevMessage = idx > 0 ? sortedMessages[idx - 1] : null;
             const prevDateLabel = prevMessage ? getDateLabel(prevMessage.timestamp) : null;
             const showDateDivider = currentDateLabel !== prevDateLabel;
 
-            // Check if this message is the currently active search match
+            // Search highlight check
             const isCurrentActiveMatch =
               searchMatches.length > 0 && searchMatches[activeMatchIndex]?.id === msg.id;
 
             return (
               <React.Fragment key={msg.id}>
-                {/* WhatsApp-Style Date Badge */}
+                {/* Clean Apple Date Divider */}
                 {showDateDivider && (
-                  <div style={{ display: 'flex', justifyContent: 'center', margin: '6px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
                     <span
                       style={{
-                        background: 'var(--ios-card, rgba(255, 255, 255, 0.85))',
-                        border: '1px solid var(--ios-card-border, #E2E8F0)',
+                        background: 'var(--ios-card-inset, #F3F4F6)',
+                        border: '1px solid var(--ios-card-border, #E5E7EB)',
                         color: 'var(--ios-text-secondary)',
                         fontSize: '11px',
                         fontWeight: 700,
-                        padding: '3px 10px',
-                        borderRadius: '10px',
-                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)'
+                        padding: '3px 12px',
+                        borderRadius: '12px',
+                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)'
                       }}
                     >
                       {currentDateLabel}
@@ -464,47 +488,63 @@ export default function MessagesView({
                   </div>
                 )}
 
-                {/* WhatsApp Message Bubble */}
+                {/* Message Bubble (Our Original Crisp Apple Theme Colors) */}
                 <div
-                  id={`whatsapp-msg-${msg.id}`}
-                  className={`whatsapp-bubble ${isMe ? 'whatsapp-bubble-me' : 'whatsapp-bubble-other'} ${
-                    isCurrentActiveMatch ? 'whatsapp-bubble-highlighted' : ''
-                  }`}
+                  id={`chat-msg-${msg.id}`}
+                  style={{
+                    alignSelf: isMe ? 'flex-end' : 'flex-start',
+                    maxWidth: '85%',
+                    background: isMe ? 'var(--ios-blue-light, #EFF6FF)' : 'var(--ios-card, #FFFFFF)',
+                    border: isMe ? '1px solid #BFDBFE' : '1px solid var(--ios-card-border)',
+                    borderRadius: '18px',
+                    borderBottomRightRadius: isMe ? '4px' : '18px',
+                    borderBottomLeftRadius: isMe ? '18px' : '4px',
+                    padding: '10px 14px 8px 14px',
+                    boxShadow: isCurrentActiveMatch
+                      ? '0 0 0 3px #F59E0B, 0 6px 18px rgba(245, 158, 11, 0.35)'
+                      : '0 1px 4px rgba(0, 0, 0, 0.04)',
+                    position: 'relative',
+                    transition: 'box-shadow 0.25s ease'
+                  }}
                 >
-                  {/* Sender Name on Received Messages */}
-                  {!isMe && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        marginBottom: '3px'
-                      }}
-                    >
+                  {/* Sender Header */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '12px',
+                      marginBottom: '4px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <FlatmateAvatar
                         id={msg.senderId === 'system' ? 'owner' : sender?.id}
                         customAvatar={sender?.customAvatar}
-                        size={16}
+                        size={18}
                       />
                       <span
                         style={{
-                          fontSize: '11.5px',
+                          fontSize: '12px',
                           fontWeight: 800,
-                          color: sender?.avatarColor || 'var(--ios-blue)',
-                          lineHeight: 1.1
+                          color: isMe ? 'var(--ios-blue)' : (sender?.avatarColor || 'var(--ios-text-primary)')
                         }}
                       >
-                        {renderHighlightedText(msg.senderName, isCurrentActiveMatch)}
+                        {renderHighlightedText(msg.senderName, isCurrentActiveMatch)} {isMe && '(You)'}
                       </span>
                     </div>
-                  )}
+
+                    <span style={{ fontSize: '10px', color: 'var(--ios-text-tertiary)', fontWeight: 600 }}>
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
 
                   {/* INTERACTIVE POLL RENDERING */}
                   {msg.poll ? (
-                    <div style={{ margin: '4px 0' }}>
+                    <div style={{ margin: '6px 0' }}>
                       <div
                         style={{
-                          fontSize: '13.5px',
+                          fontSize: '14px',
                           fontWeight: 800,
                           color: 'var(--ios-text-primary)',
                           marginBottom: '8px'
@@ -514,7 +554,7 @@ export default function MessagesView({
                       </div>
 
                       {/* Options */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {(() => {
                           const totalVotes = msg.poll.options.reduce(
                             (acc, opt) => acc + (opt.votes?.length || 0),
@@ -537,8 +577,8 @@ export default function MessagesView({
                                 }}
                                 style={{
                                   position: 'relative',
-                                  padding: '7px 10px',
-                                  borderRadius: '10px',
+                                  padding: '8px 12px',
+                                  borderRadius: '12px',
                                   border: hasVoted
                                     ? '1.5px solid var(--ios-blue)'
                                     : '1px solid var(--ios-card-border)',
@@ -561,7 +601,7 @@ export default function MessagesView({
                                     width: `${percentage}%`,
                                     background: hasVoted
                                       ? 'rgba(0, 122, 255, 0.2)'
-                                      : 'rgba(0, 0, 0, 0.06)',
+                                      : 'rgba(0, 0, 0, 0.05)',
                                     transition: 'width 0.25s ease'
                                   }}
                                 />
@@ -581,7 +621,7 @@ export default function MessagesView({
                                       size={14}
                                       color="var(--ios-blue)"
                                       filled
-                                      style={{ display: 'inline', marginRight: '4px' }}
+                                      style={{ display: 'inline', marginRight: '5px' }}
                                     />
                                   )}
                                   {renderHighlightedText(opt.text, isCurrentActiveMatch)}
@@ -605,50 +645,18 @@ export default function MessagesView({
                       </div>
                     </div>
                   ) : (
-                    /* Standard text message with highlight support */
+                    /* Standard text message */
                     <div
                       style={{
                         fontSize: '13.5px',
                         color: 'var(--ios-text-primary)',
-                        lineHeight: 1.4,
-                        whiteSpace: 'pre-wrap',
-                        paddingRight: '4px'
+                        lineHeight: 1.45,
+                        whiteSpace: 'pre-wrap'
                       }}
                     >
                       {renderHighlightedText(msg.text, isCurrentActiveMatch)}
                     </div>
                   )}
-
-                  {/* Bubble Footer: Timestamp & Blue Double Checkmarks */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'flex-end',
-                      gap: '3px',
-                      marginTop: '2px'
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '10px',
-                        color: 'var(--ios-text-tertiary)',
-                        fontWeight: 600
-                      }}
-                    >
-                      {new Date(msg.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                    {isMe && (
-                      <MaterialIcon
-                        name="done_all"
-                        size={14}
-                        color="var(--whatsapp-check-blue, #34B7F1)"
-                      />
-                    )}
-                  </div>
 
                   {/* Tapback Reactions */}
                   <div
@@ -656,8 +664,8 @@ export default function MessagesView({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
-                      marginTop: '4px',
-                      paddingTop: '4px',
+                      marginTop: '6px',
+                      paddingTop: '6px',
                       borderTop: '1px solid rgba(0, 0, 0, 0.04)'
                     }}
                   >
@@ -684,13 +692,14 @@ export default function MessagesView({
                               : count > 0
                               ? '1px solid var(--ios-card-border)'
                               : '1px solid var(--ios-card-border-soft)',
-                            borderRadius: '10px',
-                            padding: '2px 5px',
+                            borderRadius: '12px',
+                            padding: '3px 7px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '3px',
+                            gap: '4px',
                             transform: isSelectedByMe ? 'scale(1.05)' : 'none',
+                            boxShadow: isSelectedByMe ? `0 1px 4px ${react.color}33` : 'none',
                             transition: 'all 0.15s ease'
                           }}
                         >
@@ -698,7 +707,7 @@ export default function MessagesView({
                           {count > 0 && (
                             <span
                               style={{
-                                fontSize: '10px',
+                                fontSize: '10.5px',
                                 fontWeight: 800,
                                 color: isSelectedByMe ? react.color : 'var(--ios-text-secondary)'
                               }}
@@ -718,65 +727,34 @@ export default function MessagesView({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Suggestion Chips (NO SCROLLBAR) */}
-      <div style={{ flexShrink: 0, marginTop: '6px' }}>
-        <div
-          className="no-scrollbar"
-          style={{
-            display: 'flex',
-            gap: '6px',
-            overflowX: 'auto',
-            paddingBottom: '4px'
-          }}
-        >
-          {quickChips.map((chip, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => handleChipClick(chip)}
-              className="flat-quick-chip"
-              style={{ fontSize: '11.5px', padding: '4px 10px' }}
-            >
-              {chip.text}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Clean WhatsApp Style Composer Input (NO General Button, NO "Sending as Manas") */}
+      {/* Clean Composer (NO Suggestions, NO Category Tags, NO "Sending as Manas") */}
       <form
         onSubmit={handleSend}
         style={{
           display: 'flex',
           gap: '8px',
           alignItems: 'center',
-          padding: '6px 2px 4px 2px',
+          padding: '10px 14px calc(env(safe-area-inset-bottom, 8px) + 8px) 14px',
+          background: 'var(--ios-nav-bg, rgba(255, 255, 255, 0.94))',
+          backdropFilter: 'blur(25px)',
+          WebkitBackdropFilter: 'blur(25px)',
+          borderTop: '0.5px solid var(--ios-card-border)',
           flexShrink: 0
         }}
       >
-        <div
-          style={{
-            flex: 1,
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center'
-          }}
-        >
+        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
           <input
             className="ios-input"
             style={{
               width: '100%',
-              padding: '10px 14px',
+              padding: '10px 16px',
               fontSize: '14.5px',
               borderRadius: '24px',
-              background: 'var(--ios-card)',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+              background: 'var(--ios-card-inset, #F3F4F6)'
             }}
             placeholder="Type a message..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            onFocus={() => onTypingChange?.(true)}
-            onBlur={() => onTypingChange?.(false)}
             id="flat-chat-input"
           />
         </div>
@@ -788,14 +766,14 @@ export default function MessagesView({
             width: '42px',
             height: '42px',
             borderRadius: '50%',
-            background: inputText.trim() ? '#25D366' : 'var(--ios-card-inset)',
+            background: inputText.trim() ? 'var(--ios-blue, #007AFF)' : 'var(--ios-card-inset, #E5E7EB)',
             color: inputText.trim() ? '#FFFFFF' : 'var(--ios-text-tertiary)',
             border: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: inputText.trim() ? 'pointer' : 'default',
-            boxShadow: inputText.trim() ? '0 3px 10px rgba(37, 211, 102, 0.35)' : 'none',
+            boxShadow: inputText.trim() ? '0 3px 10px rgba(0, 122, 255, 0.35)' : 'none',
             transition: 'all 0.15s ease',
             flexShrink: 0
           }}

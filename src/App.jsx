@@ -27,6 +27,14 @@ import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
 export default function App() {
   const [data, setData] = useState(() => loadStoredData());
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [prevTab, setPrevTab] = useState('dashboard');
+
+  const handleTabChange = (newTab) => {
+    if (newTab !== activeTab) {
+      setPrevTab(activeTab);
+      setActiveTab(newTab);
+    }
+  };
 
   // Per-User Theme State (Light / Dark - each flatmate has independent preference)
   const [theme, setTheme] = useState('light');
@@ -731,21 +739,26 @@ export default function App() {
   ).length;
 
   return (
-    <div className="app-container">
-      {/* Top Navbar */}
-      <Navbar
-        currentUser={currentUser}
-        notifications={data.notifications}
-        onOpenNotifications={() => setIsNotifOpen(true)}
-        onOpenNudgeModal={() => setIsNudgeOpen(true)}
-        onOpenProfile={() => setIsProfileOpen(true)}
-      />
+    <div
+      className="app-container"
+      style={activeTab === 'messages' ? { paddingBottom: 0, height: '100dvh', overflow: 'hidden' } : {}}
+    >
+      {/* Top Navbar (Hidden when inside Chat) */}
+      {activeTab !== 'messages' && (
+        <Navbar
+          currentUser={currentUser}
+          notifications={data.notifications}
+          onOpenNotifications={() => setIsNotifOpen(true)}
+          onOpenNudgeModal={() => setIsNudgeOpen(true)}
+          onOpenProfile={() => setIsProfileOpen(true)}
+        />
+      )}
 
       {/* PWA Home Screen Guidance */}
-      <InstallPrompt />
+      {activeTab !== 'messages' && <InstallPrompt />}
 
       {/* Main Tab Screen */}
-      <main style={{ flex: 1 }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: activeTab === 'messages' ? 'hidden' : 'visible' }}>
         {activeTab === 'dashboard' && (
           <DashboardView
             currentUser={currentUser}
@@ -754,7 +767,7 @@ export default function App() {
             bills={data.bills}
             choreHistory={data.choreHistory}
             messages={data.messages}
-            onNavigateTab={(tab) => setActiveTab(tab)}
+            onNavigateTab={(tab) => handleTabChange(tab)}
             onOpenNudgeModal={() => setIsNudgeOpen(true)}
             onOpenQrModal={(rec) => setQrRecipient(rec)}
             onMarkChoreCleaned={handleMarkChoreCleaned}
@@ -815,22 +828,22 @@ export default function App() {
             onReactMessage={handleReactMessage}
             onSendPoll={handleSendPoll}
             onVotePoll={handleVotePoll}
-            onTypingChange={(typing) => setIsChatTyping(typing)}
+            onBack={() => setActiveTab(prevTab !== 'messages' ? prevTab : 'dashboard')}
           />
         )}
       </main>
 
-      {/* Apple Floating Island Tab Bar */}
+      {/* Apple Floating Island Tab Bar (Hidden in Chat Mode or when Typing) */}
       <TabBar
         activeTab={activeTab}
         onTabChange={(tab) => {
           setIsChatTyping(false);
-          setActiveTab(tab);
+          handleTabChange(tab);
         }}
         pendingChoresCount={pendingChoresForMe}
         pendingBillsCount={pendingBillsForMe}
         unreadMessagesCount={0}
-        hidden={isChatTyping}
+        hidden={activeTab === 'messages' || isChatTyping}
       />
 
       {/* Profile & Settings Modal */}
