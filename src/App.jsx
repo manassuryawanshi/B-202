@@ -90,7 +90,7 @@ export default function App() {
 
   // Sync state to Supabase Cloud if configured
   const syncToSupabase = useCallback(async (updatedData) => {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && updatedData) {
       try {
         await supabase
           .from('flat_state')
@@ -100,6 +100,15 @@ export default function App() {
       }
     }
   }, []);
+
+  // Universal state updater that syncs to Supabase Cloud immediately
+  const updateDataAndSync = useCallback((updater) => {
+    setData((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      syncToSupabase(next);
+      return next;
+    });
+  }, [syncToSupabase]);
 
   // Fetch latest database state from server or Supabase Cloud
   const fetchServerData = useCallback(async () => {
@@ -241,30 +250,6 @@ export default function App() {
 
   // Mark Chore Cleaned
   const handleMarkChoreCleaned = async (areaId, memberId, notes = '') => {
-    try {
-      const res = await fetch('/api/chores/clean', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ areaId, userId: memberId, notes })
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({
-          ...prev,
-          areas: updated.areas,
-          choreHistory: updated.choreHistory,
-          messages: updated.messages,
-          notifications: updated.notifications
-        }));
-
-        sendBrowserNotification('Chore Cleaned', {
-          body: `${currentUser?.name} cleaned ${notes || 'the flat'}.`
-        });
-        return;
-      }
-    } catch {}
-
-    // Offline fallback
     const area = data.areas.find((a) => a.id === areaId);
     if (!area) return;
     const order = area.rotationOrder || ['rohan', 'shubham', 'manas'];
@@ -284,89 +269,68 @@ export default function App() {
 
     const newMsg = {
       id: `msg-${Date.now()}`,
-      senderId: currentUser?.id,
-      senderName: currentUser?.name,
+      senderId: currentUser?.id || 'manas',
+      senderName: currentUser?.name || 'Manas',
       category: 'chores',
       text: `${currentUser?.name} completed cleaning ${area.name}! Next turn is passed to ${nextTurnId}.`,
       timestamp: new Date().toISOString(),
       reactions: { sparkle: 1 }
     };
 
-    setData((prev) => ({
+    updateDataAndSync((prev) => ({
       ...prev,
       areas: prev.areas.map((a) =>
         a.id === areaId
           ? { ...a, lastCleaned: new Date().toISOString(), currentTurn: nextTurnId, nextTurn: afterNextTurnId }
           : a
       ),
-      choreHistory: [newLog, ...prev.choreHistory],
-      messages: [...prev.messages, newMsg]
+      choreHistory: [newLog, ...(prev.choreHistory || [])],
+      messages: [...(prev.messages || []), newMsg]
     }));
+
+    sendBrowserNotification('Chore Cleaned', {
+      body: `${currentUser?.name} cleaned ${notes || 'the flat'}.`
+    });
+
+    try {
+      await fetch('/api/chores/clean', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ areaId, userId: memberId, notes })
+      });
+    } catch {}
   };
 
   // Swap Chore Turn
   const handleSwapTurn = async (areaId, newMemberId) => {
+    updateDataAndSync((prev) => ({
+      ...prev,
+      areas: prev.areas.map((a) => (a.id === areaId ? { ...a, currentTurn: newMemberId } : a))
+    }));
+
     try {
-      const res = await fetch('/api/chores/swap', {
+      await fetch('/api/chores/swap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ areaId, newUserId: newMemberId, initiatorName: currentUser?.name })
       });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({
-          ...prev,
-          areas: updated.areas,
-          messages: updated.messages,
-          notifications: updated.notifications
-        }));
-        return;
-      }
     } catch {}
-
-    setData((prev) => ({
-      ...prev,
-      areas: prev.areas.map((a) => (a.id === areaId ? { ...a, currentTurn: newMemberId } : a))
-    }));
   };
 
   // Mark Bill Paid
   const handleMarkBillPaid = async (billId, memberId, amount) => {
-    try {
-      const res = await fetch('/api/bills/pay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billId, userId: memberId, amount })
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({
-          ...prev,
-          bills: updated.bills,
-          messages: updated.messages,
-          notifications: updated.notifications
-        }));
-
-        sendBrowserNotification('Payment Recorded', {
-          body: `${currentUser?.name} paid their share.`
-        });
-        return;
-      }
-    } catch {}
-
-    // Offline fallback
     const bill = data.bills.find((b) => b.id === billId);
     const newMsg = {
       id: `msg-${Date.now()}`,
-      senderId: currentUser?.id,
-      senderName: currentUser?.name,
+      senderId: currentUser?.id || 'manas',
+      senderName: currentUser?.name || 'Manas',
       category: 'bills',
       text: `${currentUser?.name} paid ₹${amount} for ${bill?.title || 'Bill'}.`,
       timestamp: new Date().toISOString(),
       reactions: { paid: 1 }
     };
 
-    setData((prev) => ({
+    updateDataAndSync((prev) => ({
       ...prev,
       bills: prev.bills.map((b) =>
         b.id === billId
@@ -384,39 +348,33 @@ export default function App() {
             }
           : b
       ),
-      messages: [...prev.messages, newMsg]
+      messages: [...(prev.messages || []), newMsg]
     }));
+
+    sendBrowserNotification('Payment Recorded', {
+      body: `${currentUser?.name} paid their share.`
+    });
+
+    try {
+      await fetch('/api/bills/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billId, userId: memberId, amount })
+      });
+    } catch {}
   };
 
   // Add New Bill
   const handleAddNewBill = (newBill) => {
-    setData((prev) => ({
+    updateDataAndSync((prev) => ({
       ...prev,
-      bills: [newBill, ...prev.bills]
+      bills: [newBill, ...(prev.bills || [])]
     }));
   };
 
   // Update Custom Electricity Shares
   const handleUpdateCustomShares = async (billId, shares) => {
-    try {
-      const res = await fetch('/api/bills/custom-electricity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billId, shares, updaterName: currentUser?.name })
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({
-          ...prev,
-          bills: updated.bills,
-          messages: updated.messages,
-          notifications: updated.notifications
-        }));
-        return;
-      }
-    } catch {}
-
-    setData((prev) => ({
+    updateDataAndSync((prev) => ({
       ...prev,
       bills: prev.bills.map((b) =>
         b.id === billId
@@ -428,100 +386,82 @@ export default function App() {
           : b
       )
     }));
+
+    try {
+      await fetch('/api/bills/custom-electricity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billId, shares, updaterName: currentUser?.name })
+      });
+    } catch {}
   };
 
   // Delete Bill (creator only)
   const handleDeleteBill = async (billId) => {
+    updateDataAndSync((prev) => ({
+      ...prev,
+      bills: prev.bills.filter((b) => b.id !== billId)
+    }));
+
     try {
-      const res = await fetch('/api/bills/delete', {
+      await fetch('/api/bills/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ billId, userId: currentUser?.id })
       });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({ ...prev, bills: updated.bills }));
-        return true;
-      }
     } catch {}
-    setData((prev) => ({
-      ...prev,
-      bills: prev.bills.filter((b) => b.id !== billId)
-    }));
     return true;
   };
 
   // Update Bill (creator only)
   const handleUpdateBill = async (payload) => {
+    updateDataAndSync((prev) => ({
+      ...prev,
+      bills: prev.bills.map((b) => (b.id === payload.billId ? { ...b, ...payload } : b))
+    }));
+
     try {
-      const res = await fetch('/api/bills/update', {
+      await fetch('/api/bills/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...payload, userId: currentUser?.id })
       });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({ ...prev, bills: updated.bills }));
-        return true;
-      }
     } catch {}
-    setData((prev) => ({
-      ...prev,
-      bills: prev.bills.map((b) => (b.id === payload.billId ? { ...b, ...payload } : b))
-    }));
     return true;
   };
 
   // Send Chat Message
   const handleSendMessage = async (msg) => {
-    try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(msg)
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({ ...prev, messages: updated.messages }));
-        return;
-      }
-    } catch {}
-
     const msgObj = {
       id: `msg-${Date.now()}`,
-      senderId: msg.senderId,
-      senderName: msg.senderName,
+      senderId: msg.senderId || currentUser?.id || 'manas',
+      senderName: msg.senderName || currentUser?.name || 'Manas',
       category: msg.category || 'general',
       text: msg.text,
       timestamp: new Date().toISOString(),
       reactions: {}
     };
-    setData((prev) => ({
+
+    updateDataAndSync((prev) => ({
       ...prev,
-      messages: [...prev.messages, msgObj]
+      messages: [...(prev.messages || []), msgObj]
     }));
+
+    try {
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msgObj)
+      });
+    } catch {}
   };
 
   // React to Message with Custom Vector Tapback
   const handleReactMessage = async (msgId, reactionType) => {
     if (!currentUser) return;
-    try {
-      const res = await fetch('/api/messages/react', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ msgId, reactionType, userId: currentUser.id })
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({ ...prev, messages: updated.messages }));
-        return;
-      }
-    } catch {}
-
-    // Offline fallback: enforce single reaction per user
-    setData((prev) => ({
+    updateDataAndSync((prev) => ({
       ...prev,
-      messages: prev.messages.map((m) => {
+      messages: (prev.messages || []).map((m) => {
         if (m.id === msgId) {
           const reactions = { ...(m.reactions || {}) };
           const userReactions = { ...(m.userReactions || {}) };
@@ -549,34 +489,22 @@ export default function App() {
         return m;
       })
     }));
+
+    try {
+      await fetch('/api/messages/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ msgId, reactionType, userId: currentUser.id })
+      });
+    } catch {}
   };
 
   // Send Interactive Poll
   const handleSendPoll = async (question, options) => {
-    try {
-      const res = await fetch('/api/messages/poll-create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderId: currentUser.id,
-          senderName: currentUser.name,
-          question,
-          options
-        })
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({ ...prev, messages: updated.messages }));
-        return;
-      }
-    } catch {}
-
-    // Offline fallback
     const pollMessage = {
       id: `poll-${Date.now()}`,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
+      senderId: currentUser?.id || 'manas',
+      senderName: currentUser?.name || 'Manas',
       category: 'general',
       type: 'poll',
       text: `Poll: ${question}`,
@@ -592,36 +520,25 @@ export default function App() {
       reactions: {}
     };
 
-    setData((prev) => ({
+    updateDataAndSync((prev) => ({
       ...prev,
-      messages: [...prev.messages, pollMessage]
+      messages: [...(prev.messages || []), pollMessage]
     }));
+
+    try {
+      await fetch('/api/messages/poll-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pollMessage)
+      });
+    } catch {}
   };
 
   // Vote on Interactive Poll
   const handleVotePoll = async (msgId, optionId) => {
-    try {
-      const res = await fetch('/api/messages/poll-vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          msgId,
-          optionId,
-          userId: currentUser.id
-        })
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({ ...prev, messages: updated.messages }));
-        return;
-      }
-    } catch {}
-
-    // Offline fallback
-    setData((prev) => ({
+    updateDataAndSync((prev) => ({
       ...prev,
-      messages: prev.messages.map((m) => {
+      messages: (prev.messages || []).map((m) => {
         if (m.id === msgId && m.poll) {
           const updatedOptions = m.poll.options.map((opt) => {
             const filteredVotes = (opt.votes || []).filter((uid) => uid !== currentUser.id);
@@ -635,25 +552,53 @@ export default function App() {
         return m;
       })
     }));
+
+    try {
+      await fetch('/api/messages/poll-vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          msgId,
+          optionId,
+          userId: currentUser.id
+        })
+      });
+    } catch {}
   };
 
   // Send Nudge Broadcast
   const handleSendNudge = async (payload) => {
+    const nudgeMsg = {
+      id: `msg-${Date.now()}`,
+      senderId: currentUser?.id || 'manas',
+      senderName: currentUser?.name || 'Manas',
+      category: payload.category || 'urgent',
+      text: `📢 Reminder for ${payload.recipientName || 'everyone'}: ${payload.message}`,
+      timestamp: new Date().toISOString(),
+      reactions: { fire: 1 }
+    };
+
+    updateDataAndSync((prev) => ({
+      ...prev,
+      messages: [...(prev.messages || []), nudgeMsg],
+      notifications: [
+        {
+          id: `notif-${Date.now()}`,
+          title: `Nudge from ${currentUser?.name || 'Flatmate'}`,
+          message: payload.message,
+          timestamp: new Date().toISOString(),
+          unread: true
+        },
+        ...(prev.notifications || [])
+      ]
+    }));
+
     try {
-      const res = await fetch('/api/nudge', {
+      await fetch('/api/nudge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        const updated = await res.json();
-        setData((prev) => ({
-          ...prev,
-          messages: updated.messages,
-          notifications: updated.notifications
-        }));
-        return;
-      }
     } catch {}
   };
 
