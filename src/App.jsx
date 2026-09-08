@@ -456,7 +456,8 @@ export default function App() {
       category: msg.category || 'general',
       text: msg.text,
       timestamp: new Date().toISOString(),
-      reactions: {}
+      reactions: {},
+      ...(msg.replyTo ? { replyTo: msg.replyTo } : {})
     };
 
     updateDataAndSync((prev) => ({
