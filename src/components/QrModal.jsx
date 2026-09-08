@@ -16,8 +16,8 @@ export default function QrModal({
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [amount, setAmount] = useState(recipient.defaultAmount || '');
+  const [selectedPlatform, setSelectedPlatform] = useState('phonepe'); // 'phonepe' | 'gpay' | 'paytm' | 'upi'
   const [hasLaunchedApp, setHasLaunchedApp] = useState(false);
-  const [launchedAppName, setLaunchedAppName] = useState('');
   const [showConfirmPaidPrompt, setShowConfirmPaidPrompt] = useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
   const [markPaidSuccess, setMarkPaidSuccess] = useState(false);
@@ -46,7 +46,7 @@ export default function QrModal({
     }
   }, [recipient, upiUrl]);
 
-  // Listen for user returning to the app from PhonePe / GPay / Paytm
+  // Listen for user returning to the app from the external UPI payment app
   useEffect(() => {
     const handleReturnToApp = () => {
       if (document.visibilityState === 'visible' && hasLaunchedApp && recipient?.billId) {
@@ -70,9 +70,9 @@ export default function QrModal({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleOpenPhonePe = () => {
+  // Launch the selected platform app
+  const handlePayNow = () => {
     playHapticChime('success');
-    setLaunchedAppName('PhonePe');
     setHasLaunchedApp(true);
 
     const pa = recipient.upiId;
@@ -83,69 +83,39 @@ export default function QrModal({
     const ua = navigator.userAgent || '';
     const isAndroid = /android/i.test(ua);
 
-    if (isAndroid) {
-      // Direct Android package intent targeting PhonePe (prevents WhatsApp from intercepting)
-      window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=com.phonepe.app;end`;
+    if (selectedPlatform === 'phonepe') {
+      if (isAndroid) {
+        // Direct Android package intent targeting PhonePe (prevents WhatsApp from intercepting)
+        window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=com.phonepe.app;end`;
+      } else {
+        // iOS PhonePe custom scheme
+        const iosPhonepe = `phonepe://upi/pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
+        const start = Date.now();
+        window.location.href = iosPhonepe;
+
+        // Fallback for older iOS PhonePe builds
+        setTimeout(() => {
+          if (Date.now() - start < 1500) {
+            window.location.href = `phonepe://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
+          }
+        }, 500);
+      }
+    } else if (selectedPlatform === 'gpay') {
+      if (isAndroid) {
+        window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
+      } else {
+        window.location.href = `gpay://upi/pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
+      }
+    } else if (selectedPlatform === 'paytm') {
+      if (isAndroid) {
+        window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=net.one97.paytm;end`;
+      } else {
+        window.location.href = `paytmmp://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
+      }
     } else {
-      // iOS PhonePe custom scheme
-      const iosPhonepe = `phonepe://upi/pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
-      const start = Date.now();
-      window.location.href = iosPhonepe;
-
-      // Fallback for older iOS PhonePe builds
-      setTimeout(() => {
-        if (Date.now() - start < 1500) {
-          window.location.href = `phonepe://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
-        }
-      }, 500);
+      // Other generic UPI app
+      window.location.href = upiUrl;
     }
-  };
-
-  const handleOpenGPay = () => {
-    playHapticChime('click');
-    setLaunchedAppName('Google Pay');
-    setHasLaunchedApp(true);
-
-    const pa = recipient.upiId;
-    const pn = encodeURIComponent(recipient.name);
-    const am = amount ? `&am=${amount}` : '';
-    const tn = encodeURIComponent('B202 Flat Share');
-
-    const ua = navigator.userAgent || '';
-    const isAndroid = /android/i.test(ua);
-
-    if (isAndroid) {
-      window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
-    } else {
-      window.location.href = `gpay://upi/pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
-    }
-  };
-
-  const handleOpenPaytm = () => {
-    playHapticChime('click');
-    setLaunchedAppName('Paytm');
-    setHasLaunchedApp(true);
-
-    const pa = recipient.upiId;
-    const pn = encodeURIComponent(recipient.name);
-    const am = amount ? `&am=${amount}` : '';
-    const tn = encodeURIComponent('B202 Flat Share');
-
-    const ua = navigator.userAgent || '';
-    const isAndroid = /android/i.test(ua);
-
-    if (isAndroid) {
-      window.location.href = `intent://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}#Intent;scheme=upi;package=net.one97.paytm;end`;
-    } else {
-      window.location.href = `paytmmp://pay?pa=${pa}&pn=${pn}${am}&cu=INR&tn=${tn}`;
-    }
-  };
-
-  const handleOpenOtherUpi = () => {
-    playHapticChime('click');
-    setLaunchedAppName('UPI App');
-    setHasLaunchedApp(true);
-    window.location.href = upiUrl;
   };
 
   const handleConfirmPaid = async () => {
@@ -159,6 +129,44 @@ export default function QrModal({
       onClose();
     }, 900);
   };
+
+  // Platform details for rendering
+  const platforms = [
+    {
+      id: 'phonepe',
+      name: 'PhonePe',
+      logo: '/logos/phonepe-icon.svg',
+      brandColor: '#5F259F',
+      activeBorder: '#5F259F',
+      activeBg: 'rgba(95, 37, 159, 0.08)'
+    },
+    {
+      id: 'gpay',
+      name: 'Google Pay',
+      logo: '/logos/gpay-icon.svg',
+      brandColor: '#1A73E8',
+      activeBorder: '#1A73E8',
+      activeBg: 'rgba(26, 115, 232, 0.08)'
+    },
+    {
+      id: 'paytm',
+      name: 'Paytm',
+      logo: '/logos/paytm-icon.svg',
+      brandColor: '#002970',
+      activeBorder: '#00BAF2',
+      activeBg: 'rgba(0, 186, 242, 0.08)'
+    },
+    {
+      id: 'upi',
+      name: 'Other UPI',
+      logo: '/logos/upi-icon.svg',
+      brandColor: '#097939',
+      activeBorder: '#097939',
+      activeBg: 'rgba(9, 121, 57, 0.08)'
+    }
+  ];
+
+  const currentPlatform = platforms.find((p) => p.id === selectedPlatform) || platforms[0];
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -199,11 +207,11 @@ export default function QrModal({
                 letterSpacing: '0.8px'
               }}
             >
-              SCAN WITH PHONEPE / GPAY / PAYTM
+              SCAN WITH ANY UPI APP
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
             <FlatmateAvatar id={recipient.id || 'owner'} size={32} />
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--ios-text-primary)' }}>
@@ -286,7 +294,7 @@ export default function QrModal({
                 Payment Confirmation
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--ios-text-secondary)' }}>
-                Did your payment of <b>₹{amount || recipient.defaultAmount}</b> to <b>{recipient.name}</b> on {launchedAppName || 'UPI'} succeed?
+                Did your payment of <b>₹{amount || recipient.defaultAmount}</b> to <b>{recipient.name}</b> on {currentPlatform.name} succeed?
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
                 <button
@@ -310,146 +318,130 @@ export default function QrModal({
             </div>
           )}
 
-          {/* 4 LOGO BUTTONS IN ONE HORIZONTAL LINE */}
+          {/* Section Label */}
+          <div style={{ width: '100%', textAlign: 'left', marginTop: '2px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ios-text-tertiary)', letterSpacing: '0.4px' }}>
+              Select Payment Platform
+            </span>
+          </div>
+
+          {/* 4 OFFICIAL LOGO BUTTONS IN ONE HORIZONTAL LINE */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(4, 1fr)',
               gap: '8px',
-              width: '100%',
-              marginTop: '4px'
+              width: '100%'
             }}
           >
-            {/* 1. PhonePe */}
-            <button
-              type="button"
-              onClick={handleOpenPhonePe}
-              title="Pay with PhonePe"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '10px 2px 8px 2px',
-                borderRadius: '16px',
-                border: '1.5px solid #5F259F',
-                background: 'var(--ios-card, #FFFFFF)',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(95, 37, 159, 0.15)',
-                transition: 'transform 0.15s ease'
-              }}
-              className="clickable"
-            >
-              {/* PhonePe Official Logo */}
-              <svg width="34" height="34" viewBox="0 0 40 40" fill="none">
-                <rect width="40" height="40" rx="11" fill="#5F259F"/>
-                <path d="M21 8.5H15C14.2 8.5 13.5 9.2 13.5 10V28C13.5 28.8 14.2 29.5 15 29.5C15.8 29.5 16.5 28.8 16.5 28V24H21C25.1 24 28.5 20.6 28.5 16.5C28.5 12.4 25.1 8.5 21 8.5ZM21 21H16.5V11.5H21C23.8 11.5 25.5 13.5 25.5 16.2C25.5 19 23.8 21 21 21Z" fill="#FFFFFF"/>
-                <circle cx="27" cy="10" r="2.2" fill="#FFFFFF"/>
-              </svg>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#5F259F' }}>
-                PhonePe
-              </span>
-            </button>
+            {platforms.map((p) => {
+              const isSelected = selectedPlatform === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    playHapticChime('click');
+                    setSelectedPlatform(p.id);
+                  }}
+                  title={`Select ${p.name}`}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '8px 2px 8px 2px',
+                    borderRadius: '16px',
+                    border: isSelected
+                      ? `2px solid ${p.activeBorder}`
+                      : '1.5px solid var(--ios-card-border, #ECEEF2)',
+                    background: isSelected ? p.activeBg : 'var(--ios-card, #FFFFFF)',
+                    cursor: 'pointer',
+                    boxShadow: isSelected
+                      ? `0 2px 10px ${p.activeBg}`
+                      : '0 1px 4px rgba(0,0,0,0.03)',
+                    transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                    transition: 'all 0.18s ease',
+                    position: 'relative'
+                  }}
+                  className="clickable"
+                >
+                  {/* Selected checkmark indicator pill */}
+                  {isSelected && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '-5px',
+                        right: '-3px',
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '50%',
+                        backgroundColor: p.activeBorder,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      <MaterialIcon name="check" size={11} color="#FFFFFF" />
+                    </div>
+                  )}
 
-            {/* 2. Google Pay (GPay) */}
-            <button
-              type="button"
-              onClick={handleOpenGPay}
-              title="Pay with Google Pay"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '10px 2px 8px 2px',
-                borderRadius: '16px',
-                border: '1.5px solid var(--ios-card-border, #ECEEF2)',
-                background: 'var(--ios-card, #FFFFFF)',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                transition: 'transform 0.15s ease'
-              }}
-              className="clickable"
-            >
-              {/* Google Pay Official Logo */}
-              <svg width="34" height="34" viewBox="0 0 40 40" fill="none">
-                <rect width="40" height="40" rx="11" fill="#FFFFFF" stroke="#E5E7EB" strokeWidth="1.2"/>
-                <path d="M20 17.5V22.5H25.4C24.9 24.1 23.6 25.7 20 25.7C16.7 25.7 14 23 14 19.7C14 16.4 16.7 13.7 20 13.7C21.9 13.7 23.3 14.5 24 15.2L26.6 12.6C24.9 11 22.7 10 20 10C14.7 10 10.4 14.3 10.4 19.7C10.4 25.1 14.7 29.4 20 29.4C25.8 29.4 29.2 25.2 29.2 20.1C29.2 19.2 29.1 18.4 28.9 17.5H20Z" fill="#4285F4"/>
-                <path d="M12.4 16.3L15.8 18.9C16.7 16.3 18.6 14.5 21.2 13.9L20 10C16.5 11 13.7 13.3 12.4 16.3Z" fill="#EA4335"/>
-                <path d="M20 29.4C22.8 29.4 25.2 28.4 26.9 26.8L23.6 23.9C22.6 24.6 21.4 25.2 20 25.2C17.3 25.2 15.1 23.4 14.2 20.9L10.7 23.5C12.3 26.7 15.8 29.4 20 29.4Z" fill="#34A853"/>
-                <path d="M10.7 23.5C10.2 22.3 10 21 10 19.7C10 18.4 10.2 17.1 10.7 15.9L14.2 18.5C14.1 18.9 14 19.3 14 19.7C14 20.1 14.1 20.5 14.2 20.9L10.7 23.5Z" fill="#FBBC05"/>
-              </svg>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ios-text-primary)' }}>
-                GPay
-              </span>
-            </button>
+                  {/* Official SVG Logo */}
+                  <img
+                    src={p.logo}
+                    alt={p.name}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      objectFit: 'contain',
+                      borderRadius: '10px'
+                    }}
+                  />
 
-            {/* 3. Paytm */}
-            <button
-              type="button"
-              onClick={handleOpenPaytm}
-              title="Pay with Paytm"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '10px 2px 8px 2px',
-                borderRadius: '16px',
-                border: '1.5px solid var(--ios-card-border, #ECEEF2)',
-                background: 'var(--ios-card, #FFFFFF)',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                transition: 'transform 0.15s ease'
-              }}
-              className="clickable"
-            >
-              {/* Paytm Official Logo */}
-              <svg width="34" height="34" viewBox="0 0 40 40" fill="none">
-                <rect width="40" height="40" rx="11" fill="#002970"/>
-                <text x="50%" y="42%" textAnchor="middle" dominantBaseline="middle" fill="#FFFFFF" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="9" letterSpacing="0.3">Pay</text>
-                <text x="50%" y="70%" textAnchor="middle" dominantBaseline="middle" fill="#00BAF2" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="9" letterSpacing="0.3">tm</text>
-              </svg>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ios-text-primary)' }}>
-                Paytm
-              </span>
-            </button>
-
-            {/* 4. Other / BHIM UPI */}
-            <button
-              type="button"
-              onClick={handleOpenOtherUpi}
-              title="Open other UPI App"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '10px 2px 8px 2px',
-                borderRadius: '16px',
-                border: '1.5px solid var(--ios-card-border, #ECEEF2)',
-                background: 'var(--ios-card, #FFFFFF)',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                transition: 'transform 0.15s ease'
-              }}
-              className="clickable"
-            >
-              {/* NPCI UPI Arrows Logo */}
-              <svg width="34" height="34" viewBox="0 0 40 40" fill="none">
-                <rect width="40" height="40" rx="11" fill="#FFFFFF" stroke="#E5E7EB" strokeWidth="1.2"/>
-                <path d="M15 13L22 20L15 27" stroke="#097939" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M21 13L28 20L21 27" stroke="#F15A24" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ios-text-primary)' }}>
-                Other UPI
-              </span>
-            </button>
+                  <span
+                    style={{
+                      fontSize: '10.5px',
+                      fontWeight: isSelected ? 800 : 600,
+                      color: isSelected ? p.brandColor : 'var(--ios-text-secondary)',
+                      lineHeight: 1.1
+                    }}
+                  >
+                    {p.name}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+
+          {/* DEDICATED PAY NOW BUTTON */}
+          <button
+            type="button"
+            onClick={handlePayNow}
+            style={{
+              width: '100%',
+              backgroundColor: currentPlatform.brandColor,
+              color: '#FFFFFF',
+              fontWeight: 800,
+              fontSize: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '13px 18px',
+              borderRadius: '16px',
+              boxShadow: `0 4px 14px ${currentPlatform.activeBg.replace('0.08', '0.4')}`,
+              border: 'none',
+              cursor: 'pointer',
+              marginTop: '4px',
+              transition: 'all 0.2s ease'
+            }}
+            className="clickable"
+          >
+            <MaterialIcon name="bolt" size={19} color="#FFFFFF" />
+            <span>Pay {amount ? `₹${amount}` : 'Now'} with {currentPlatform.name}</span>
+          </button>
 
           {/* Optional Direct 1-Tap Manual "Mark as Paid" if opened for a bill */}
           {recipient?.billId && onMarkBillPaid && !showConfirmPaidPrompt && (
@@ -460,8 +452,8 @@ export default function QrModal({
               className="ios-btn ios-btn-secondary"
               style={{
                 width: '100%',
-                marginTop: '4px',
-                fontSize: '13px',
+                marginTop: '2px',
+                fontSize: '12.5px',
                 fontWeight: 700,
                 color: 'var(--ios-green)',
                 background: 'rgba(52, 199, 89, 0.08)',
