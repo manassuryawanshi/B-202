@@ -56,7 +56,7 @@ export function createB202ApiMiddleware() {
             dueDate: dueStr,
             monthYear: currentMonthYear,
             recipientName: 'Ujwal (Flat Rent Coordinator)',
-            recipientUpi: '8669240763@upi',
+            recipientUpi: '8669240763@ybl',
             isCustomSplit: true,
             creatorId: 'system',
             shares: { manas: 9000, rohan: 4500, shubham: 4500, ujwal: 4500, prathamesh: 4500 },
@@ -99,7 +99,7 @@ export function createB202ApiMiddleware() {
             dueDate: dueStr,
             monthYear: currentMonthYear,
             recipientName: 'Manas (Washing Machine Coordinator)',
-            recipientUpi: '8010616851@upi',
+            recipientUpi: '8010616851@ybl',
             isCustomSplit: false,
             perPersonAmount: 100,
             creatorId: 'system',
@@ -117,9 +117,9 @@ export function createB202ApiMiddleware() {
         } else {
           // Ensure all washing machine bills have Manas as recipient and deduplicate
           wmBillsThisMonth.forEach((b) => {
-            if (b.recipientUpi !== '8010616851@upi' || b.recipientName !== 'Manas (Washing Machine Coordinator)') {
+            if (b.recipientUpi !== '8010616851@ybl' || b.recipientName !== 'Manas (Washing Machine Coordinator)') {
               b.recipientName = 'Manas (Washing Machine Coordinator)';
-              b.recipientUpi = '8010616851@upi';
+              b.recipientUpi = '8010616851@ybl';
               dbChanged = true;
             }
           });
@@ -140,6 +140,20 @@ export function createB202ApiMiddleware() {
             dbChanged = true;
           }
         }
+
+        // Auto-migrate any stale @upi handles to @ybl
+        (db.members || []).forEach((m) => {
+          if (m.upiId && m.upiId.endsWith('@upi')) {
+            m.upiId = m.upiId.replace(/@upi$/i, '@ybl');
+            dbChanged = true;
+          }
+        });
+        (db.bills || []).forEach((b) => {
+          if (b.recipientUpi && b.recipientUpi.endsWith('@upi')) {
+            b.recipientUpi = b.recipientUpi.replace(/@upi$/i, '@ybl');
+            dbChanged = true;
+          }
+        });
 
         if (dbChanged) saveDatabase(db);
 
@@ -257,17 +271,17 @@ export function createB202ApiMiddleware() {
 
         const creatorMember = db.members.find((m) => m.id === creatorId);
         let finalRecipientName = creatorMember?.name || creatorName || 'Flat B-202';
-        let finalRecipientUpi = creatorMember?.upiId || '8010616851@upi';
+        let finalRecipientUpi = creatorMember?.upiId || '8010616851@ybl';
 
         if (type === 'rent') {
           finalRecipientName = 'Ujwal (Flat Rent Coordinator)';
-          finalRecipientUpi = '8669240763@upi';
+          finalRecipientUpi = '8669240763@ybl';
         } else if (type === 'electricity') {
           finalRecipientName = 'Electricity Board (MSEDCL)';
-          finalRecipientUpi = '8010616851@upi';
+          finalRecipientUpi = '8010616851@ybl';
         } else if (type === 'washing-machine') {
           finalRecipientName = 'Manas (Washing Machine Coordinator)';
-          finalRecipientUpi = '8010616851@upi';
+          finalRecipientUpi = '8010616851@ybl';
         }
 
         const newBill = {

@@ -42,7 +42,7 @@ export const loadStoredData = () => {
             ...b,
             ...(b.type === 'washing-machine' ? {
               recipientName: 'Manas (Washing Machine Coordinator)',
-              recipientUpi: '8010616851@upi'
+              recipientUpi: '8010616851@ybl'
             } : {})
           });
         } else {
@@ -60,7 +60,7 @@ export const loadStoredData = () => {
             payments: mergedPayments,
             ...(b.type === 'washing-machine' ? {
               recipientName: 'Manas (Washing Machine Coordinator)',
-              recipientUpi: '8010616851@upi'
+              recipientUpi: '8010616851@ybl'
             } : {})
           });
         }

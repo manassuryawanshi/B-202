@@ -72,7 +72,7 @@ export default function BillsView({
             ...bill,
             ...(bill.type === 'washing-machine' ? {
               recipientName: 'Manas (Washing Machine Coordinator)',
-              recipientUpi: '8010616851@upi'
+              recipientUpi: '8010616851@ybl'
             } : {})
           });
         } else {
@@ -189,26 +189,26 @@ export default function BillsView({
       let calculatedTotal = parseFloat(newTotalAmount) || 0;
       let sharesObj = {};
       let recipientName = currentUser?.name || 'Flatmate';
-      let recipientUpi = currentUser?.upiId || '8010616851@upi';
+      let recipientUpi = currentUser?.upiId || '8010616851@ybl';
 
       if (newCategory === 'electricity') {
         finalTitle = 'Electricity Bill';
         sharesObj = { ...newCustomShares };
         calculatedTotal = Object.values(sharesObj).reduce((a, b) => a + (Number(b) || 0), 0);
         recipientName = 'Electricity Board (MSEDCL)';
-        recipientUpi = '8010616851@upi';
+        recipientUpi = '8010616851@ybl';
       } else if (newCategory === 'rent') {
         finalTitle = 'Flat Rent';
         calculatedTotal = 27000;
         sharesObj = { manas: 9000, rohan: 4500, shubham: 4500, ujwal: 4500, prathamesh: 4500 };
         recipientName = 'Ujwal (Flat Rent Coordinator)';
-        recipientUpi = '8669240763@upi';
+        recipientUpi = '8669240763@ybl';
       } else if (newCategory === 'washing-machine') {
         finalTitle = 'Washing Machine Bill';
         calculatedTotal = 500;
         sharesObj = { manas: 100, rohan: 100, shubham: 100, ujwal: 100, prathamesh: 100 };
         recipientName = 'Manas (Washing Machine Coordinator)';
-        recipientUpi = '8010616851@upi';
+        recipientUpi = '8010616851@ybl';
       } else {
         // 'other'
         finalTitle = newTitle.trim() || 'Other Flat Bill';
@@ -720,9 +720,17 @@ export default function BillsView({
                   }}
                   onClick={() => {
                     playHapticChime('click');
+                    const recipientMember = (members || []).find(
+                      (m) =>
+                        (bill.recipientName && m.name && bill.recipientName.toLowerCase().includes(m.name.toLowerCase())) ||
+                        (bill.recipientUpi && m.upiId && m.upiId.toLowerCase() === bill.recipientUpi.toLowerCase())
+                    );
                     onOpenQrModal({
+                      id: recipientMember?.id,
                       name: bill.recipientName,
                       upiId: bill.recipientUpi,
+                      phone: recipientMember?.phone,
+                      displayPhone: recipientMember?.displayPhone,
                       defaultAmount: myShare,
                       title: bill.title,
                       billId: bill.id

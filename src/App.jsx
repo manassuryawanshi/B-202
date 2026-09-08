@@ -254,7 +254,7 @@ export default function App() {
             ...b,
             ...(b.type === 'washing-machine' ? {
               recipientName: 'Manas (Washing Machine Coordinator)',
-              recipientUpi: '8010616851@upi'
+              recipientUpi: '8010616851@ybl'
             } : {})
           });
         } else {
@@ -279,7 +279,7 @@ export default function App() {
             payments: mergedPayments,
             ...(b.type === 'washing-machine' ? {
               recipientName: 'Manas (Washing Machine Coordinator)',
-              recipientUpi: '8010616851@upi'
+              recipientUpi: '8010616851@ybl'
             } : {})
           });
         }
@@ -486,6 +486,26 @@ export default function App() {
     }
 
     return { ...currentUser, ...fieldsWithTime };
+  };
+
+  // Update Member UPI ID
+  const handleUpdateMemberUpi = async (memberId, upiId) => {
+    updateDataAndSync((prev) => ({
+      ...prev,
+      members: (prev.members || []).map((m) =>
+        m.id === memberId ? { ...m, upiId } : m
+      )
+    }));
+
+    try {
+      await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: memberId, upiId })
+      });
+    } catch (err) {
+      console.error('Update member UPI API error:', err);
+    }
   };
 
   // Mark Chore Cleaned
@@ -894,14 +914,6 @@ export default function App() {
     } catch {}
   };
 
-  // Update Member UPI
-  const handleUpdateMemberUpi = (memberId, newUpi) => {
-    setData((prev) => ({
-      ...prev,
-      members: prev.members.map((m) => (m.id === memberId ? { ...m, upiId: newUpi } : m))
-    }));
-  };
-
   const handleMarkAllNotificationsRead = async () => {
     setData((prev) => ({
       ...prev,
@@ -1121,6 +1133,7 @@ export default function App() {
         recipient={qrRecipient}
         currentUser={currentUser}
         onMarkBillPaid={handleMarkBillPaid}
+        onUpdateMemberUpi={handleUpdateMemberUpi}
       />
     </div>
   );

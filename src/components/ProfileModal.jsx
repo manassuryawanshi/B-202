@@ -313,7 +313,7 @@ export default function ProfileModal({
                 className="ios-input"
                 value={upiId}
                 onChange={(e) => setUpiId(e.target.value)}
-                placeholder="e.g. yourname@upi"
+                placeholder="e.g. yourname@ybl or mobile@okaxis"
               />
             </div>
 

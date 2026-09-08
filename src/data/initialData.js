@@ -14,7 +14,7 @@ export const FLATMATE_MEMBERS = [
     room: "Living Hall",
     roomBadge: "Hall",
     roomType: "hall",
-    upiId: "8766688102@upi",
+    upiId: "8766688102@ybl",
     avatarColor: "#FF3B30", // iOS Red
     initials: "RO",
     avatarEmoji: ""
@@ -27,7 +27,7 @@ export const FLATMATE_MEMBERS = [
     room: "Living Hall",
     roomBadge: "Hall",
     roomType: "hall",
-    upiId: "8237580043@upi",
+    upiId: "8237580043@ybl",
     avatarColor: "#FF9500", // iOS Orange
     initials: "SH",
     avatarEmoji: "🛋️"
@@ -40,7 +40,7 @@ export const FLATMATE_MEMBERS = [
     room: "Bedroom 1",
     roomBadge: "Bed 1",
     roomType: "bedroom1",
-    upiId: "8010616851@upi",
+    upiId: "8010616851@ybl",
     avatarColor: "#007AFF", // iOS Blue
     initials: "MA",
     avatarEmoji: ""
@@ -53,7 +53,7 @@ export const FLATMATE_MEMBERS = [
     room: "Bedroom 2 (Attached Bath)",
     roomBadge: "Bed 2 + Bath",
     roomType: "bedroom2",
-    upiId: "8669240763@upi",
+    upiId: "8669240763@ybl",
     avatarColor: "#34C759", // iOS Green
     initials: "UJ",
     avatarEmoji: ""
@@ -66,7 +66,7 @@ export const FLATMATE_MEMBERS = [
     room: "Bedroom 2 (Attached Bath)",
     roomBadge: "Bed 2 + Bath",
     roomType: "bedroom2",
-    upiId: "8459692494@upi",
+    upiId: "8459692494@ybl",
     avatarColor: "#AF52DE", // iOS Purple
     initials: "PR",
     avatarEmoji: "🚿"
@@ -232,7 +232,7 @@ export const INITIAL_BILLS = [
     dueDate: "2026-09-05",
     monthYear: "Sep 2026",
     recipientName: "Ujwal (Flat Rent Coordinator)",
-    recipientUpi: "8669240763@upi",
+    recipientUpi: "8669240763@ybl",
     isCustomSplit: true,
     creatorId: "system",
     shares: {
@@ -262,7 +262,7 @@ export const INITIAL_BILLS = [
     billArrivedDate: "2026-09-01",
     consumerNumber: "160221929401",
     recipientName: "Electricity Board (MSEDCL)",
-    recipientUpi: "8010616851@upi", // Managed by Manas or directly
+    recipientUpi: "8010616851@ybl", // Managed by Manas or directly
     splitMethod: "equal-5",
     payments: {
       manas: { paid: true, date: "2026-09-01T14:10:00.000Z", utr: "ELE9812" },
@@ -281,7 +281,7 @@ export const INITIAL_BILLS = [
     dueDate: "2026-09-10",
     monthYear: "Sep 2026",
     recipientName: "Manas (Washing Machine Coordinator)",
-    recipientUpi: "8010616851@upi",
+    recipientUpi: "8010616851@ybl",
     isCustomSplit: false,
     creatorId: "system",
     shares: { manas: 100, rohan: 100, shubham: 100, ujwal: 100, prathamesh: 100 },

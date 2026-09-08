@@ -330,7 +330,7 @@ export default function DirectoryView({
                 className="ios-input"
                 value={editUpiInput}
                 onChange={(e) => setEditUpiInput(e.target.value)}
-                placeholder="mobile@upi"
+                placeholder="mobile@ybl or name@okaxis"
               />
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
