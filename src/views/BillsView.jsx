@@ -331,7 +331,7 @@ export default function BillsView({
       </div>
 
       {/* Bill List (Latest at Top, Visual Differentiation between Paid & Unpaid) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {filteredBills.map((bill) => {
           const myShare = bill.shares?.[currentUser.id] || bill.perPersonAmount || 0;
           const myPayment = bill.payments?.[currentUser.id];
@@ -339,53 +339,35 @@ export default function BillsView({
           const paidCount = Object.values(bill.payments || {}).filter((p) => p.paid).length;
           const isAllPaid = paidCount === members.length;
 
+          const isDefaultBill =
+            bill.type === 'rent' ||
+            bill.type === 'washing-machine' ||
+            bill.creatorId === 'system' ||
+            bill.title?.toLowerCase().includes('rent') ||
+            bill.title?.toLowerCase().includes('washing');
+          const canManageThisBill = !isDefaultBill && (bill.creatorId === currentUser?.id);
+          const canEditShares = bill.type === 'electricity' || (!isDefaultBill && (bill.creatorId === currentUser?.id || currentUser?.id === 'manas'));
+
           return (
             <div
               key={bill.id}
               className="ios-card"
               style={{
+                padding: '14px',
                 border: isMyPaid
-                  ? '1.5px solid var(--ios-card-border-soft)'
+                  ? '1px solid var(--ios-card-border)'
                   : '1.5px solid var(--ios-orange)',
-                background: isMyPaid
-                  ? 'var(--ios-card)'
-                  : 'var(--ios-card)'
+                boxShadow: isMyPaid ? '0 1px 3px rgba(0,0,0,0.03)' : '0 2px 8px rgba(249, 115, 22, 0.08)'
               }}
             >
-              {/* Differentiation Status Banner */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '10px',
-                  paddingBottom: '8px',
-                  borderBottom: '1px solid var(--ios-separator)'
-                }}
-              >
-                {isMyPaid ? (
-                  <span className="status-pill success" style={{ fontSize: '11px', fontWeight: 800 }}>
-                    <MaterialIcon name="check_circle" size={13} filled /> You Paid (₹{myShare.toLocaleString('en-IN')})
-                  </span>
-                ) : (
-                  <span className="status-pill warning" style={{ fontSize: '11px', fontWeight: 800 }}>
-                    <MaterialIcon name="warning" size={13} /> Payment Pending: ₹{myShare.toLocaleString('en-IN')} Due
-                  </span>
-                )}
-
-                <span style={{ fontSize: '11px', color: 'var(--ios-text-tertiary)' }}>
-                  Due: <strong>{bill.dueDate}</strong>
-                </span>
-              </div>
-
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {/* Header: Icon, Title & Top Status Badge */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0, flex: 1 }}>
                   <div
                     style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '12px',
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '11px',
                       background: 'var(--ios-card-inset)',
                       border: '1px solid var(--ios-card-border)',
                       display: 'flex',
@@ -397,98 +379,152 @@ export default function BillsView({
                     {getCategoryIcon(bill.type, 20)}
                   </div>
 
-                  <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--ios-text-primary)' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <h3
+                      style={{
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        color: 'var(--ios-text-primary)',
+                        margin: 0,
+                        lineHeight: 1.25,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
                       {bill.title}
                     </h3>
-                    <div style={{ fontSize: '11.5px', color: 'var(--ios-text-secondary)', marginTop: '2px' }}>
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        color: 'var(--ios-text-secondary)',
+                        marginTop: '2px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
                       Pay to: <strong>{bill.recipientName}</strong>
                     </div>
-                    {bill.remarks && (
-                      <div style={{ fontSize: '11px', color: 'var(--ios-text-tertiary)', marginTop: '2px', fontStyle: 'italic' }}>
-                        Note: {bill.remarks}
-                      </div>
-                    )}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
-                  {(() => {
-                    const isDefaultBill =
-                      bill.type === 'rent' ||
-                      bill.type === 'washing-machine' ||
-                      bill.creatorId === 'system' ||
-                      bill.title?.toLowerCase().includes('rent') ||
-                      bill.title?.toLowerCase().includes('washing');
-                    const canManageThisBill = !isDefaultBill && (bill.creatorId === currentUser?.id);
+                {/* Status Badge & Actions */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+                  {isMyPaid ? (
+                    <span className="status-pill success" style={{ fontSize: '11px', fontWeight: 800, padding: '3px 8px' }}>
+                      <MaterialIcon name="check_circle" size={13} filled /> Paid
+                    </span>
+                  ) : (
+                    <span className="status-pill warning" style={{ fontSize: '11px', fontWeight: 800, padding: '3px 8px' }}>
+                      <MaterialIcon name="schedule" size={13} /> ₹{myShare.toLocaleString('en-IN')} Due
+                    </span>
+                  )}
 
-                    if (!canManageThisBill) return null;
+                  {canManageThisBill && (
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                      <button
+                        onClick={() => handleOpenEditBill(bill)}
+                        style={{
+                          background: 'var(--ios-card-inset)',
+                          border: '1px solid var(--ios-card-border)',
+                          borderRadius: '6px',
+                          padding: '2px 6px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          color: 'var(--ios-blue)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px'
+                        }}
+                        title="Edit bill"
+                        id={`edit-bill-${bill.id}`}
+                      >
+                        <MaterialIcon name="edit" size={11} /> Edit
+                      </button>
 
-                    return (
-                      <div style={{ display: 'flex', gap: '5px', marginBottom: '2px' }}>
-                        <button
-                          onClick={() => handleOpenEditBill(bill)}
-                          style={{
-                            background: 'var(--ios-card-inset)',
-                            border: '1px solid var(--ios-card-border)',
-                            borderRadius: '6px',
-                            padding: '2px 7px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: 'var(--ios-blue)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px'
-                          }}
-                          title="Edit bill"
-                          id={`edit-bill-${bill.id}`}
-                        >
-                          <MaterialIcon name="edit" size={12} /> Edit
-                        </button>
+                      <button
+                        onClick={() => handleDeleteBill(bill)}
+                        style={{
+                          background: 'rgba(255, 59, 48, 0.08)',
+                          border: '1px solid rgba(255, 59, 48, 0.25)',
+                          borderRadius: '6px',
+                          padding: '2px 6px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          color: 'var(--ios-red)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px'
+                        }}
+                        title="Delete bill"
+                        id={`delete-bill-${bill.id}`}
+                      >
+                        <MaterialIcon name="delete" size={11} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                        <button
-                          onClick={() => handleDeleteBill(bill)}
-                          style={{
-                            background: 'rgba(255, 59, 48, 0.08)',
-                            border: '1px solid rgba(255, 59, 48, 0.25)',
-                            borderRadius: '6px',
-                            padding: '2px 7px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: 'var(--ios-red)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px'
-                          }}
-                          title="Delete bill"
-                          id={`delete-bill-${bill.id}`}
-                        >
-                          <MaterialIcon name="delete" size={12} /> Delete
-                        </button>
-                      </div>
-                    );
-                })()}
+              {bill.remarks && (
+                <div style={{ fontSize: '11px', color: 'var(--ios-text-tertiary)', marginTop: '4px', fontStyle: 'italic' }}>
+                  Note: {bill.remarks}
+                </div>
+              )}
 
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ios-text-primary)' }}>
+              {/* Compact 3-Metric Glanceable Summary Strip */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr 1fr',
+                  gap: '4px',
+                  background: 'var(--ios-card-inset)',
+                  borderRadius: '11px',
+                  padding: '8px 6px',
+                  margin: '10px 0 8px 0',
+                  textAlign: 'center'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '9.5px', fontWeight: 600, color: 'var(--ios-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    Total Bill
+                  </div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--ios-text-primary)', marginTop: '2px' }}>
                     ₹{bill.totalAmount.toLocaleString('en-IN')}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: isMyPaid ? 'var(--ios-green)' : 'var(--ios-orange)', fontWeight: 700 }}>
-                    Your Share: ₹{myShare.toLocaleString('en-IN')}
+                </div>
+
+                <div style={{ borderLeft: '1px solid var(--ios-card-border)', borderRight: '1px solid var(--ios-card-border)' }}>
+                  <div style={{ fontSize: '9.5px', fontWeight: 600, color: 'var(--ios-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    Your Share
+                  </div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: isMyPaid ? 'var(--ios-green)' : 'var(--ios-orange)', marginTop: '2px' }}>
+                    ₹{myShare.toLocaleString('en-IN')}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '9.5px', fontWeight: 600, color: 'var(--ios-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    Due Date
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--ios-text-secondary)', marginTop: '3px' }}>
+                    {bill.dueDate}
                   </div>
                 </div>
               </div>
 
               {/* Progress */}
-              <div style={{ margin: '12px 0 10px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '5px' }}>
+              <div style={{ margin: '8px 0 10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '4px' }}>
                   <span style={{ color: 'var(--ios-text-tertiary)', fontWeight: 600 }}>Flatmates Paid</span>
                   <span style={{ color: isAllPaid ? 'var(--ios-green)' : 'var(--ios-orange)', fontWeight: 700 }}>
                     {paidCount} of 5 Settled
                   </span>
                 </div>
-                <div style={{ height: '6px', borderRadius: '3px', background: 'var(--ios-card-inset)', overflow: 'hidden' }}>
+                <div style={{ height: '5px', borderRadius: '3px', background: 'var(--ios-card-inset)', overflow: 'hidden' }}>
                   <div
                     style={{
                       height: '100%',
@@ -502,42 +538,36 @@ export default function BillsView({
               </div>
 
               {/* Per-Flatmate Matrix */}
-              <div className="ios-inset-box" style={{ margin: '12px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ios-text-tertiary)', letterSpacing: '0.4px' }}>
+              <div className="ios-inset-box" style={{ margin: '8px 0 10px 0', padding: '9px 11px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--ios-text-tertiary)', letterSpacing: '0.4px' }}>
                     Flatmates Breakdown
                   </span>
 
-                  {(() => {
-                    const isDefaultBill = bill.type === 'rent' || bill.type === 'washing-machine' || bill.creatorId === 'system';
-                    const canEditShares = bill.type === 'electricity' || (!isDefaultBill && (bill.creatorId === currentUser?.id || currentUser?.id === 'manas'));
-                    if (!canEditShares) return null;
-
-                    return (
-                      <button
-                        onClick={() => handleOpenCustomEditor(bill)}
-                        style={{
-                          background: 'var(--ios-blue-light)',
-                          border: '1px solid #BFDBFE',
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '11px',
-                          color: 'var(--ios-blue)',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        id={`edit-shares-${bill.id}`}
-                      >
-                        <MaterialIcon name="tune" size={13} /> Edit Custom Shares
-                      </button>
-                    );
-                  })()}
+                  {canEditShares && (
+                    <button
+                      onClick={() => handleOpenCustomEditor(bill)}
+                      style={{
+                        background: 'var(--ios-blue-light)',
+                        border: '1px solid #BFDBFE',
+                        borderRadius: '6px',
+                        padding: '2px 7px',
+                        fontSize: '10.5px',
+                        color: 'var(--ios-blue)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}
+                      id={`edit-shares-${bill.id}`}
+                    >
+                      <MaterialIcon name="tune" size={12} /> Edit Shares
+                    </button>
+                  )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   {members.map((member) => {
                     const shareAmt = bill.shares?.[member.id] || bill.perPersonAmount || 0;
                     const payInfo = bill.payments?.[member.id];
@@ -552,27 +582,35 @@ export default function BillsView({
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           padding: '2px 0',
-                          fontSize: '13px'
+                          fontSize: '12px'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <FlatmateAvatar id={member.id} customAvatar={member.customAvatar} size={24} />
-                          <span style={{ fontWeight: isUser ? 800 : 600, color: 'var(--ios-text-primary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                          <FlatmateAvatar id={member.id} customAvatar={member.customAvatar} size={20} />
+                          <span
+                            style={{
+                              fontWeight: isUser ? 800 : 600,
+                              color: 'var(--ios-text-primary)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                          >
                             {member.name} {isUser && '(You)'}
                           </span>
-                          <span style={{ fontSize: '10.5px', color: 'var(--ios-text-tertiary)' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--ios-text-tertiary)', flexShrink: 0 }}>
                             {member.roomBadge}
                           </span>
                         </div>
 
-                        <div>
+                        <div style={{ flexShrink: 0, marginLeft: '6px' }}>
                           {hasPaid ? (
-                            <span className="status-pill success">
-                              <MaterialIcon name="check_circle" size={12} filled /> Paid (₹{shareAmt})
+                            <span className="status-pill success" style={{ fontSize: '10.5px', padding: '2px 6px', gap: '3px' }}>
+                              <MaterialIcon name="check_circle" size={11} filled /> Paid (₹{shareAmt})
                             </span>
                           ) : (
-                            <span className="status-pill warning">
-                              <MaterialIcon name="schedule" size={12} /> ₹{shareAmt} Pending
+                            <span className="status-pill warning" style={{ fontSize: '10.5px', padding: '2px 6px', gap: '3px' }}>
+                              <MaterialIcon name="schedule" size={11} /> ₹{shareAmt} Pending
                             </span>
                           )}
                         </div>
@@ -583,29 +621,54 @@ export default function BillsView({
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
                 {!isMyPaid ? (
                   <button
                     className="ios-btn ios-btn-success"
-                    style={{ flex: 2 }}
+                    style={{
+                      flex: 1.3,
+                      height: '38px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      whiteSpace: 'nowrap',
+                      padding: '0 8px',
+                      gap: '4px'
+                    }}
                     onClick={() => handlePayClick(bill, myShare)}
                     id={`pay-share-${bill.id}`}
                   >
-                    <MaterialIcon name="check_circle" size={16} filled /> Mark My Share Paid (₹{myShare})
+                    <MaterialIcon name="check_circle" size={15} filled /> Mark Paid (₹{myShare})
                   </button>
                 ) : (
                   <button
                     className="ios-btn ios-btn-secondary"
-                    style={{ flex: 2, opacity: 0.85 }}
+                    style={{
+                      flex: 1.3,
+                      height: '38px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      whiteSpace: 'nowrap',
+                      opacity: 0.85,
+                      padding: '0 8px',
+                      gap: '4px'
+                    }}
                     disabled
                   >
-                    <MaterialIcon name="check_circle" size={16} color="var(--ios-green)" filled /> You Paid ₹{myShare}
+                    <MaterialIcon name="check_circle" size={15} color="var(--ios-green)" filled /> Paid (₹{myShare})
                   </button>
                 )}
 
                 <button
                   className="ios-btn ios-btn-secondary"
-                  style={{ flex: 1 }}
+                  style={{
+                    flex: 0.9,
+                    height: '38px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    padding: '0 8px',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }}
                   onClick={() => {
                     playHapticChime('click');
                     onOpenQrModal({
@@ -615,16 +678,24 @@ export default function BillsView({
                       title: bill.title
                     });
                   }}
+                  id={`qr-bill-${bill.id}`}
                 >
-                  <MaterialIcon name="qr_code_2" size={16} /> QR
+                  <MaterialIcon name="qr_code_2" size={15} /> Pay QR
                 </button>
 
                 <button
                   className="ios-btn ios-btn-secondary"
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    padding: 0,
+                    flexShrink: 0
+                  }}
                   onClick={onOpenNudgeModal}
                   title="Remind flatmates"
+                  id={`nudge-bill-${bill.id}`}
                 >
-                  <MaterialIcon name="campaign" size={16} color="var(--ios-orange)" />
+                  <MaterialIcon name="campaign" size={17} color="var(--ios-orange)" />
                 </button>
               </div>
             </div>
