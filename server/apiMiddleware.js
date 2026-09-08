@@ -306,8 +306,8 @@ export function createB202ApiMiddleware() {
           return sendJson(res, 403, { success: false, error: 'Default recurring bills (Rent and Washing Machine) cannot be deleted.' });
         }
 
-        // Only the person who created this bill can delete it
-        if (bill.creatorId !== userId) {
+        // Only the person who created this bill (or flat admin) can delete it
+        if (bill.creatorId !== userId && userId !== 'manas') {
           return sendJson(res, 403, { success: false, error: 'Only the person who added this bill can delete it.' });
         }
 
@@ -336,7 +336,7 @@ export function createB202ApiMiddleware() {
           return sendJson(res, 403, { success: false, error: 'Default recurring bills (Rent and Washing Machine) cannot be edited.' });
         }
 
-        if (bill.creatorId !== userId) {
+        if (bill.creatorId !== userId && userId !== 'manas') {
           return sendJson(res, 403, { success: false, error: 'Only the person who added this bill can edit it.' });
         }
 

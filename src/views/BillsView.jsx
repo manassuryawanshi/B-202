@@ -218,7 +218,8 @@ export default function BillsView({
         recipientUpi,
         isCustomSplit: Object.keys(sharesObj).length > 0,
         shares: sharesObj,
-        payments: initialPayments
+        payments: initialPayments,
+        updatedAt: Date.now()
       };
 
       playHapticChime('success');
@@ -361,7 +362,7 @@ export default function BillsView({
             bill.creatorId === 'system' ||
             bill.title?.toLowerCase().includes('rent') ||
             bill.title?.toLowerCase().includes('washing');
-          const canManageThisBill = !isDefaultBill && (bill.creatorId === currentUser?.id);
+          const canManageThisBill = !isDefaultBill && (bill.creatorId === currentUser?.id || currentUser?.id === 'manas' || !bill.creatorId);
           const canEditShares = bill.type === 'electricity' || (!isDefaultBill && (bill.creatorId === currentUser?.id || currentUser?.id === 'manas'));
 
           return (

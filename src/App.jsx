@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import TabBar from './components/TabBar';
 import NotificationModal from './components/NotificationModal';
@@ -35,6 +35,12 @@ export default function App() {
       setActiveTab(newTab);
     }
   };
+
+  // Unique session ID to identify writes from this client tab (prevents echo / infinite loops)
+  const clientSessionId = useMemo(
+    () => 'client-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now(),
+    []
+  );
 
   // Per-User Theme State (Light / Dark - each flatmate has independent preference)
   const [theme, setTheme] = useState('light');
@@ -94,12 +100,17 @@ export default function App() {
       try {
         await supabase
           .from('flat_state')
-          .upsert({ id: 'b202', data: updatedData, updated_at: new Date().toISOString() });
+          .upsert({
+            id: 'b202',
+            data: updatedData,
+            client_session_id: clientSessionId,
+            updated_at: new Date().toISOString()
+          });
       } catch (err) {
         console.error('Supabase sync error:', err);
       }
     }
-  }, []);
+  }, [clientSessionId]);
 
   // Universal state updater that syncs to Supabase Cloud immediately
   const updateDataAndSync = useCallback((updater) => {
@@ -110,11 +121,17 @@ export default function App() {
     });
   }, [syncToSupabase]);
 
-  // Merge incoming cloud data with local state to prevent message/bill loss
+  // Merge incoming cloud data with local state to prevent message/bill loss or state oscillations
   const mergeIncomingData = useCallback((incoming, prev) => {
     if (!incoming) return prev;
 
-    // Merge messages by ID (union of both)
+    // 1. Deleted bill IDs union (permanently prevents deleted bills from returning)
+    const deletedIds = new Set([
+      ...(prev.deletedBillIds || []),
+      ...(incoming.deletedBillIds || [])
+    ]);
+
+    // 2. Merge messages by ID (union of both, deduplicated & ordered by time)
     const messageMap = new Map();
     (incoming.messages || []).forEach((m) => messageMap.set(m.id, m));
     (prev.messages || []).forEach((m) => {
@@ -126,20 +143,64 @@ export default function App() {
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
 
-    // Merge bills by ID — prefer local version if newer (prevents newly added bills being wiped)
+    // 3. Merge bills with conflict resolution
+    // - Deleted bills are NEVER revived
+    // - Payments: If ANY version has paid: true, it STAYS paid
+    // - Metadata: Latest updatedAt wins
     const billMap = new Map();
-    (incoming.bills || []).forEach((b) => billMap.set(b.id, b));
-    (prev.bills || []).forEach((b) => {
-      if (!billMap.has(b.id)) {
-        billMap.set(b.id, b); // preserve locally added bills not yet in cloud
+    const prevBills = (prev.bills || []).filter((b) => !deletedIds.has(b.id));
+    const incomingBills = (incoming.bills || []).filter((b) => !deletedIds.has(b.id));
+
+    // Seed with local bills first
+    prevBills.forEach((b) => billMap.set(b.id, b));
+
+    // Merge in incoming bills
+    incomingBills.forEach((inBill) => {
+      if (!billMap.has(inBill.id)) {
+        billMap.set(inBill.id, inBill);
+      } else {
+        const localBill = billMap.get(inBill.id);
+
+        // Union of payments: if either local or incoming has paid: true, member STAYS PAID!
+        const mergedPayments = { ...(inBill.payments || {}), ...(localBill.payments || {}) };
+        const allMemberIds = Array.from(
+          new Set([...Object.keys(inBill.payments || {}), ...Object.keys(localBill.payments || {})])
+        );
+
+        allMemberIds.forEach((mId) => {
+          const inPay = inBill.payments?.[mId];
+          const locPay = localBill.payments?.[mId];
+          if (locPay?.paid) {
+            mergedPayments[mId] = locPay;
+          } else if (inPay?.paid) {
+            mergedPayments[mId] = inPay;
+          } else {
+            mergedPayments[mId] = locPay || inPay;
+          }
+        });
+
+        // Determine which metadata to prefer (local vs incoming)
+        const localTime = localBill.updatedAt || 0;
+        const inTime = inBill.updatedAt || 0;
+        const baseBill = localTime >= inTime ? localBill : inBill;
+
+        billMap.set(inBill.id, {
+          ...inBill,
+          ...baseBill,
+          payments: mergedPayments,
+          shares: baseBill.shares || inBill.shares || localBill.shares
+        });
       }
     });
+
     const mergedBills = Array.from(billMap.values());
 
     return {
+      ...prev,
       ...incoming,
       messages: mergedMessages,
-      bills: mergedBills
+      bills: mergedBills,
+      deletedBillIds: Array.from(deletedIds)
     };
   }, []);
 
@@ -149,12 +210,15 @@ export default function App() {
       try {
         const { data: row, error } = await supabase
           .from('flat_state')
-          .select('data')
+          .select('data, client_session_id')
           .eq('id', 'b202')
           .single();
 
         if (row && row.data) {
-          setData((prev) => mergeIncomingData(row.data, prev));
+          // If the cloud row is what this client just wrote, skip merging to prevent echo
+          if (row.client_session_id !== clientSessionId) {
+            setData((prev) => mergeIncomingData(row.data, prev));
+          }
           if (currentUser) {
             const freshUser = row.data.members?.find((m) => m.id === currentUser.id);
             if (freshUser) setCurrentUser(freshUser);
@@ -162,7 +226,7 @@ export default function App() {
           return;
         } else if (error && error.code === 'PGRST116') {
           // Initialize row if not existing
-          await supabase.from('flat_state').insert({ id: 'b202', data: data });
+          await supabase.from('flat_state').insert({ id: 'b202', data: data, client_session_id: clientSessionId });
         }
       } catch (err) {
         console.warn('Supabase fetch fallback:', err);
@@ -181,7 +245,7 @@ export default function App() {
         }
       }
     } catch {}
-  }, [currentUser?.id, mergeIncomingData]);
+  }, [clientSessionId, currentUser?.id, mergeIncomingData]);
 
   useEffect(() => {
     fetchServerData();
@@ -195,6 +259,10 @@ export default function App() {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'flat_state', filter: 'id=eq.b202' },
           (payload) => {
+            // Ignore events triggered by THIS client tab to break infinite loops & state oscillation
+            if (payload?.new?.client_session_id === clientSessionId) {
+              return;
+            }
             if (payload?.new?.data) {
               setData((prev) => mergeIncomingData(payload.new.data, prev));
             }
@@ -215,17 +283,16 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (channel) supabase?.removeChannel(channel);
     };
-  }, [fetchServerData, mergeIncomingData]);
+  }, [clientSessionId, fetchServerData, mergeIncomingData]);
 
-  // Persist local backup & Supabase cloud sync
+  // Persist local backup to localStorage (Does NOT trigger cloud sync to avoid infinite loops)
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.AREAS, data.areas);
     saveToStorage(STORAGE_KEYS.CHORE_HISTORY, data.choreHistory);
     saveToStorage(STORAGE_KEYS.BILLS, data.bills);
     saveToStorage(STORAGE_KEYS.MESSAGES, data.messages);
     saveToStorage(STORAGE_KEYS.NOTIFICATIONS, data.notifications);
-    syncToSupabase(data);
-  }, [data, syncToSupabase]);
+  }, [data]);
 
   // Login handler
   const handleLoginSuccess = (user) => {
@@ -360,10 +427,11 @@ export default function App() {
 
     updateDataAndSync((prev) => ({
       ...prev,
-      bills: prev.bills.map((b) =>
+      bills: (prev.bills || []).map((b) =>
         b.id === billId
           ? {
               ...b,
+              updatedAt: Date.now(),
               payments: {
                 ...b.payments,
                 [memberId]: {
@@ -394,9 +462,13 @@ export default function App() {
 
   // Add New Bill
   const handleAddNewBill = (newBill) => {
+    const billWithMeta = {
+      ...newBill,
+      updatedAt: Date.now()
+    };
     updateDataAndSync((prev) => ({
       ...prev,
-      bills: [newBill, ...(prev.bills || [])]
+      bills: [billWithMeta, ...(prev.bills || []).filter((b) => b.id !== newBill.id)]
     }));
   };
 
@@ -404,12 +476,13 @@ export default function App() {
   const handleUpdateCustomShares = async (billId, shares) => {
     updateDataAndSync((prev) => ({
       ...prev,
-      bills: prev.bills.map((b) =>
+      bills: (prev.bills || []).map((b) =>
         b.id === billId
           ? {
               ...b,
               shares: { ...b.shares, ...shares },
-              totalAmount: Object.values(shares).reduce((x, y) => x + (Number(y) || 0), 0)
+              totalAmount: Object.values(shares).reduce((x, y) => x + (Number(y) || 0), 0),
+              updatedAt: Date.now()
             }
           : b
       )
@@ -424,11 +497,12 @@ export default function App() {
     } catch {}
   };
 
-  // Delete Bill (creator only)
+  // Delete Bill (creator or admin)
   const handleDeleteBill = async (billId) => {
     updateDataAndSync((prev) => ({
       ...prev,
-      bills: prev.bills.filter((b) => b.id !== billId)
+      bills: (prev.bills || []).filter((b) => b.id !== billId),
+      deletedBillIds: Array.from(new Set([...(prev.deletedBillIds || []), billId]))
     }));
 
     try {
@@ -441,11 +515,47 @@ export default function App() {
     return true;
   };
 
-  // Update Bill (creator only)
+  // Update Bill (creator or admin)
   const handleUpdateBill = async (payload) => {
     updateDataAndSync((prev) => ({
       ...prev,
-      bills: prev.bills.map((b) => (b.id === payload.billId ? { ...b, ...payload } : b))
+      bills: (prev.bills || []).map((b) => {
+        if (b.id !== payload.billId) return b;
+
+        const newTotal = parseFloat(payload.totalAmount) || b.totalAmount;
+        let newShares = { ...b.shares };
+
+        // Recalculate equal shares if not custom split
+        if (!b.isCustomSplit && newTotal !== b.totalAmount) {
+          const each = Math.round(newTotal / (prev.members?.length || 5));
+          Object.keys(newShares).forEach((k) => {
+            newShares[k] = each;
+          });
+        } else if (payload.shares) {
+          newShares = { ...payload.shares };
+        }
+
+        const newPayments = { ...b.payments };
+        Object.keys(newPayments).forEach((mId) => {
+          if (!newPayments[mId]?.paid) {
+            newPayments[mId] = {
+              ...newPayments[mId],
+              amount: newShares[mId] || Math.round(newTotal / (prev.members?.length || 5))
+            };
+          }
+        });
+
+        return {
+          ...b,
+          title: payload.title !== undefined ? payload.title : b.title,
+          totalAmount: newTotal,
+          dueDate: payload.dueDate || b.dueDate,
+          remarks: payload.remarks !== undefined ? payload.remarks : b.remarks,
+          shares: newShares,
+          payments: newPayments,
+          updatedAt: Date.now()
+        };
+      })
     }));
 
     try {
