@@ -32,22 +32,36 @@ export default function ProfileModal({
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Handle Photo Upload
+  // Handle Photo Upload — auto-compress to ≤400×400 JPEG regardless of original size
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check size (under 3MB)
-    if (file.size > 3 * 1024 * 1024) {
-      alert('Please choose an image under 3MB');
-      return;
-    }
-
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64 = event.target.result;
-      setCustomAvatar(base64);
-      playHapticChime('click');
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 400;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) {
+            height = Math.round((height * MAX) / width);
+            width = MAX;
+          } else {
+            width = Math.round((width * MAX) / height);
+            height = MAX;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        setCustomAvatar(compressed);
+        playHapticChime('click');
+      };
+      img.src = event.target.result;
     };
     reader.readAsDataURL(file);
   };
