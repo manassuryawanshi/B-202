@@ -290,6 +290,17 @@ export default function App() {
 
     const mergedBills = Array.from(finalBillsMap.values());
 
+    // Check if new notifications arrived from other flatmates to trigger native push alert on Android/iOS
+    if (incoming.notifications && prev.notifications) {
+      const prevIds = new Set((prev.notifications || []).map((n) => n.id));
+      const brandNew = incoming.notifications.filter((n) => !prevIds.has(n.id) && n.unread);
+      if (brandNew.length > 0) {
+        brandNew.forEach((n) => {
+          sendBrowserNotification(n.title, { body: n.body || n.message });
+        });
+      }
+    }
+
     return {
       ...prev,
       ...incoming,
@@ -399,6 +410,13 @@ export default function App() {
         .subscribe();
     }
 
+    // Automatic periodic polling every 4 seconds (vital for real-time multi-device sync & broadcast alerts)
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchServerData();
+      }
+    }, 4000);
+
     // Refresh when user returns to app tab
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -408,6 +426,7 @@ export default function App() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      clearInterval(pollInterval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (channel) supabase?.removeChannel(channel);
     };
@@ -880,27 +899,37 @@ export default function App() {
 
   // Send Nudge Broadcast
   const handleSendNudge = async (payload) => {
+    const textContent = payload.text || payload.message || '';
+    const recipient = payload.recipientName || 'everyone';
     const nudgeMsg = {
       id: `msg-${Date.now()}`,
       senderId: currentUser?.id || 'manas',
       senderName: currentUser?.name || 'Manas',
       category: payload.category || 'urgent',
-      text: `📢 Reminder for ${payload.recipientName || 'everyone'}: ${payload.message}`,
+      text: `📢 Announcement for ${recipient}: ${textContent}`,
       timestamp: new Date().toISOString(),
-      reactions: { fire: 1 }
+      reactions: { fire: 1 },
+      isBroadcast: true
+    };
+
+    const newNotif = {
+      id: `notif-${Date.now()}`,
+      title: payload.recipientName && payload.recipientName !== 'All Flatmates'
+        ? `Nudge to ${payload.recipientName}`
+        : `📢 Broadcast from ${currentUser?.name || 'Flatmate'}`,
+      body: textContent,
+      message: textContent,
+      time: 'Just now',
+      type: 'broadcast',
+      timestamp: new Date().toISOString(),
+      unread: true
     };
 
     updateDataAndSync((prev) => ({
       ...prev,
       messages: [...(prev.messages || []), nudgeMsg],
       notifications: [
-        {
-          id: `notif-${Date.now()}`,
-          title: `Nudge from ${currentUser?.name || 'Flatmate'}`,
-          message: payload.message,
-          timestamp: new Date().toISOString(),
-          unread: true
-        },
+        newNotif,
         ...(prev.notifications || [])
       ]
     }));
@@ -909,7 +938,10 @@ export default function App() {
       await fetch('/api/nudge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          ...payload,
+          text: textContent
+        })
       });
     } catch {}
   };
@@ -1016,6 +1048,7 @@ export default function App() {
             bills={data.bills}
             choreHistory={data.choreHistory}
             messages={data.messages}
+            notifications={data.notifications}
             onNavigateTab={(tab) => handleTabChange(tab)}
             onOpenNudgeModal={() => setIsNudgeOpen(true)}
             onOpenQrModal={(rec) => setQrRecipient(rec)}

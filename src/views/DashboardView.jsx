@@ -10,13 +10,31 @@ export default function DashboardView({
   areas,
   bills,
   choreHistory,
-  messages,
+  messages = [],
+  notifications = [],
   onNavigateTab,
   onOpenNudgeModal,
   onOpenQrModal,
   onMarkChoreCleaned,
   onMarkBillPaid
 }) {
+  const broadcastList = [
+    ...(notifications || []).filter((n) => n.type === 'broadcast' || n.target === 'all' || n.toId === 'broadcast').map((n) => ({
+      id: n.id,
+      text: n.body || n.message || n.text,
+      senderName: n.fromName || 'Flatmate',
+      timestamp: n.createdAt || n.timestamp
+    })),
+    ...(messages || []).filter((m) => m.isBroadcast || m.text?.startsWith('📢')).map((m) => ({
+      id: m.id,
+      text: (m.text || '').replace(/^📢\s*/, ''),
+      senderName: m.authorName || m.senderName || 'Flatmate',
+      timestamp: m.timestamp
+    }))
+  ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+  const latestBroadcast = broadcastList[0];
+
   const userDueBills = bills.filter((b) => !b.payments?.[currentUser?.id]?.paid);
   const totalUserDue = userDueBills.reduce((acc, b) => {
     const share = b.shares?.[currentUser?.id] || b.perPersonAmount || 0;
@@ -82,6 +100,58 @@ export default function DashboardView({
           </div>
         </div>
       </div>
+
+      {/* Active Flat Broadcast Banner */}
+      {latestBroadcast && (
+        <div
+          className="apple-banner"
+          style={{
+            background: 'linear-gradient(135deg, #FF6B00 0%, #EA580C 100%)',
+            color: '#FFFFFF',
+            padding: '14px 18px',
+            cursor: 'pointer',
+            boxShadow: '0 8px 24px rgba(234, 88, 12, 0.28)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            position: 'relative'
+          }}
+          onClick={() => onNavigateTab('messages')}
+        >
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              background: 'rgba(255, 255, 255, 0.22)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              fontSize: '22px'
+            }}
+          >
+            📢
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase', background: 'rgba(0, 0, 0, 0.22)', padding: '2px 7px', borderRadius: '6px' }}>
+                FLAT BROADCAST
+              </span>
+              <span style={{ fontSize: '11.5px', opacity: 0.92, fontWeight: 600 }}>
+                from {latestBroadcast.senderName}
+              </span>
+            </div>
+            <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '3px', lineHeight: 1.3, wordBreak: 'break-word' }}>
+              {latestBroadcast.text}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.88, fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
+            <span>Chat</span>
+            <MaterialIcon name="chevron_right" size={18} />
+          </div>
+        </div>
+      )}
 
       {/* Dynamic Duty Alert Banner */}
       {userDueChores.length > 0 ? (

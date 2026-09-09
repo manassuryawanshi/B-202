@@ -482,6 +482,8 @@ export default function MessagesView({
             const isCurrentActiveMatch =
               searchMatches.length > 0 && searchMatches[activeMatchIndex]?.id === msg.id;
 
+            const isBroadcast = msg.isBroadcast || (typeof msg.text === 'string' && msg.text.startsWith('📢')) || msg.category === 'broadcast';
+
             return (
               <React.Fragment key={msg.id}>
                 {/* Clean Apple Date Divider */}
@@ -543,8 +545,16 @@ export default function MessagesView({
                   id={`chat-msg-${msg.id}`}
                   style={{
                     maxWidth: '85%',
-                    background: isMe ? 'var(--ios-blue-light, #EFF6FF)' : 'var(--ios-card, #FFFFFF)',
-                    border: isMe ? '1px solid #BFDBFE' : '1px solid var(--ios-card-border)',
+                    background: isBroadcast
+                      ? 'linear-gradient(135deg, rgba(254, 243, 199, 0.95), rgba(254, 215, 170, 0.85))'
+                      : isMe
+                      ? 'var(--ios-blue-light, #EFF6FF)'
+                      : 'var(--ios-card, #FFFFFF)',
+                    border: isBroadcast
+                      ? '1.5px solid #F59E0B'
+                      : isMe
+                      ? '1px solid #BFDBFE'
+                      : '1px solid var(--ios-card-border)',
                     borderRadius: '18px',
                     borderBottomRightRadius: isMe ? '4px' : '18px',
                     borderBottomLeftRadius: isMe ? '18px' : '4px',
@@ -553,11 +563,36 @@ export default function MessagesView({
                       ? '0 0 0 3px #F59E0B, 0 6px 18px rgba(245, 158, 11, 0.35)'
                       : replyTo?.id === msg.id
                       ? '0 0 0 2px var(--ios-blue)'
+                      : isBroadcast
+                      ? '0 4px 14px rgba(245, 158, 11, 0.2)'
                       : '0 1px 4px rgba(0, 0, 0, 0.04)',
                     position: 'relative',
                     transition: 'box-shadow 0.25s ease'
                   }}
                 >
+                  {/* Flat Announcement Badge */}
+                  {isBroadcast && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        background: '#EA580C',
+                        color: '#FFFFFF',
+                        fontSize: '9.5px',
+                        fontWeight: 800,
+                        letterSpacing: '0.6px',
+                        textTransform: 'uppercase',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        marginBottom: '6px',
+                        boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)'
+                      }}
+                    >
+                      <span>📢 Flat Announcement</span>
+                    </div>
+                  )}
+
                   {/* Sender Header */}
                   <div
                     style={{

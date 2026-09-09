@@ -257,33 +257,48 @@ export const playHapticChime = (type = 'click') => {
   }
 };
 
-// Request and trigger native Web Push / Browser Notification
-export const sendBrowserNotification = (title, options = {}) => {
+// Request and trigger native Web Push / Browser Notification (Supports Android PWA & Desktop)
+export const sendBrowserNotification = async (title, options = {}) => {
   if (!('Notification' in window)) {
     return false;
   }
 
+  const defaultOptions = {
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [200, 100, 200],
+    ...options
+  };
+
   if (Notification.permission === 'granted') {
+    // 1. ServiceWorker showNotification - Mandatory for Android PWA & Chrome on mobile
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && reg.showNotification) {
+          await reg.showNotification(title, defaultOptions);
+          return true;
+        }
+      } catch (err) {
+        console.warn('SW showNotification fallback:', err);
+      }
+    }
+
+    // 2. Desktop fallback (Safari, desktop browsers)
     try {
-      new Notification(title, {
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
-        ...options
-      });
+      new Notification(title, defaultOptions);
       return true;
-    } catch {
+    } catch (err) {
+      console.warn('new Notification failed:', err);
       return false;
     }
   } else if (Notification.permission !== 'denied') {
-    Notification.requestPermission().then((permission) => {
+    try {
+      const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        new Notification(title, {
-          icon: '/icon-192.svg',
-          badge: '/icon-192.svg',
-          ...options
-        });
+        return sendBrowserNotification(title, options);
       }
-    });
+    } catch {}
   }
   return false;
 };

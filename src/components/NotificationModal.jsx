@@ -36,13 +36,14 @@ export default function NotificationModal({
     }
   };
 
-  const handleTestNotification = () => {
+  const handleTestNotification = async () => {
     playHapticChime('nudge');
-    const sent = sendBrowserNotification('B-202 Skyra Reminder', {
-      body: 'Testing flat notifications on your device.'
-    });
-    if (!sent && permissionStatus !== 'granted') {
-      requestPermission();
+    if (permissionStatus !== 'granted') {
+      await requestPermission();
+    } else {
+      await sendBrowserNotification('B-202 Skyra Alert', {
+        body: 'Flat notifications are active on your device!'
+      });
     }
   };
 
@@ -186,7 +187,7 @@ export default function NotificationModal({
                     width: '32px',
                     height: '32px',
                     borderRadius: '50%',
-                    background: n.type === 'bill' ? 'var(--ios-orange-light)' : 'var(--ios-blue-light)',
+                    background: n.type === 'bill' ? 'var(--ios-orange-light)' : n.type === 'broadcast' ? 'rgba(255, 149, 0, 0.15)' : 'var(--ios-blue-light)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -195,6 +196,8 @@ export default function NotificationModal({
                 >
                   {n.type === 'bill' ? (
                     <MaterialIcon name="currency_rupee" size={17} color="var(--ios-orange)" />
+                  ) : n.type === 'broadcast' ? (
+                    <MaterialIcon name="campaign" size={18} color="var(--ios-orange)" />
                   ) : (
                     <MaterialIcon name="cleaning_services" size={17} color="var(--ios-blue)" />
                   )}
@@ -208,7 +211,7 @@ export default function NotificationModal({
                     <span style={{ fontSize: '10px', color: 'var(--ios-text-tertiary)' }}>{n.time}</span>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--ios-text-secondary)', marginTop: '2px', lineHeight: 1.4 }}>
-                    {n.body}
+                    {n.body || n.message}
                   </div>
                 </div>
 
