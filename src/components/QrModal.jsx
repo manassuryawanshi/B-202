@@ -17,17 +17,14 @@ export default function QrModal({
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
-  const [copiedAction, setCopiedAction] = useState(null);
   const [amount, setAmount] = useState(recipient.defaultAmount || '');
   const [selectedPlatform, setSelectedPlatform] = useState('phonepe'); // 'phonepe' | 'gpay' | 'paytm' | 'upi'
   const [hasLaunchedApp, setHasLaunchedApp] = useState(false);
   const [showConfirmPaidPrompt, setShowConfirmPaidPrompt] = useState(false);
-  const [showQrCode, setShowQrCode] = useState(false);
-  const [showManualOptions, setShowManualOptions] = useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
   const [markPaidSuccess, setMarkPaidSuccess] = useState(false);
 
-  // Normalize initial UPI handle: @upi is non-existent in bank apps, default to @ybl
+  // Normalize initial UPI handle: default @upi to @ybl
   const initialUpi = (recipient.upiId || '').replace(/@upi$/i, '@ybl');
   const [activeUpiId, setActiveUpiId] = useState(initialUpi);
   const [isEditingUpi, setIsEditingUpi] = useState(false);
@@ -41,104 +38,39 @@ export default function QrModal({
       setActiveUpiId(norm);
       setEditUpiInput(norm);
       setAmount(recipient.defaultAmount || '');
-      setCopiedAction(null);
+      setCopied(false);
+      setCopiedPhone(false);
+      setShowConfirmPaidPrompt(false);
     }
   }, [recipient]);
 
-  // Resolves the optimal VPA for the selected platform (works for all flatmates)
-  const getPlatformVpa = (baseUpi, platform) => {
-    if (!baseUpi) return '';
-    const trimmed = baseUpi.trim();
-    // If it has a verified bank handle (and not generic @upi), respect it for all flatmates
-    if (trimmed.includes('@') && !trimmed.toLowerCase().endsWith('@upi')) {
-      return trimmed;
-    }
-    // If it's a 10-digit phone number or ends with @upi
-    const phoneMatch = trimmed.match(/^(\d{10})(@upi)?$/i);
-    if (phoneMatch) {
-      const phone = phoneMatch[1];
-      if (platform === 'phonepe') return `${phone}@ybl`;
-      if (platform === 'paytm') return `${phone}@paytm`;
-    }
-    return trimmed;
-  };
-
-  // Direct 1-Tap Deep Link URL Generator
-  const getDirectAppUrl = (platform) => {
-    const pa = getPlatformVpa(activeUpiId, platform);
-    const pn = recipient.name || 'Flatmate';
-    const am = amount || recipient.defaultAmount || '';
-    const tn = recipient.title || 'Flat B-202 Share';
-    const tr = `B202TXN${Date.now()}`;
-
-    const params = new URLSearchParams();
-    params.append('pa', pa);
-    params.append('pn', pn);
-    if (am) {
-      const num = parseFloat(String(am).replace(/,/g, ''));
-      params.append('am', !isNaN(num) && num > 0 ? num.toFixed(2) : String(am));
-    }
-    params.append('cu', 'INR');
-    params.append('tn', tn);
-    params.append('tr', tr);
-
-    const query = params.toString();
-
-    const ua = navigator.userAgent || '';
-    const isAndroid = /android/i.test(ua);
-
-    if (platform === 'phonepe') {
-      if (isAndroid) {
-        return `intent://pay?${query}#Intent;scheme=upi;package=com.phonepe.app;end`;
-      }
-      // Official PhonePe iOS scheme with /upi/pay path for direct 1-tap checkout
-      return `phonepe://upi/pay?${query}`;
-    }
-
-    if (platform === 'gpay') {
-      if (isAndroid) {
-        return `intent://pay?${query}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
-      }
-      return `gpay://upi/pay?${query}`;
-    }
-
-    if (platform === 'paytm') {
-      if (isAndroid) {
-        return `intent://pay?${query}#Intent;scheme=upi;package=net.one97.paytm;end`;
-      }
-      return `paytmmp://upi/pay?${query}`;
-    }
-
-    // Universal UPI scheme (opens Android / iOS app chooser directly to checkout)
-    return `upi://pay?${query}`;
-  };
-
-  // P2P static UPI URI for QR code
+  // Clean UPI URL for QR code
   const upiQrUrl = `upi://pay?pa=${activeUpiId}&pn=${encodeURIComponent(
-    recipient.name
-  )}${amount ? `&am=${amount}` : ''}&cu=INR&mode=00`;
+    recipient.name || 'Flatmate'
+  )}${amount ? `&am=${amount}` : ''}&cu=INR`;
 
+  // Render QR code
   useEffect(() => {
     if (canvasRef.current && activeUpiId) {
       QRCode.toCanvas(
         canvasRef.current,
         upiQrUrl,
         {
-          width: 190,
-          margin: 2,
+          width: 175,
+          margin: 1,
           color: {
             dark: '#111827',
             light: '#ffffff'
           }
         },
         (error) => {
-          if (error) console.error('QR error:', error);
+          if (error) console.error('QR render error:', error);
         }
       );
     }
-  }, [recipient, activeUpiId, upiQrUrl, showQrCode]);
+  }, [recipient, activeUpiId, upiQrUrl]);
 
-  // Listen for user returning to the app from the external UPI payment app
+  // Listen for user returning to the app from external payment app
   useEffect(() => {
     const handleReturnToApp = () => {
       if (document.visibilityState === 'visible' && hasLaunchedApp && recipient?.billId) {
@@ -155,6 +87,40 @@ export default function QrModal({
     };
   }, [hasLaunchedApp, recipient?.billId]);
 
+  // URL to directly open the selected app
+  const getAppLaunchUrl = (platform) => {
+    const ua = navigator.userAgent || '';
+    const isAndroid = /android/i.test(ua);
+
+    if (platform === 'phonepe') {
+      return isAndroid
+        ? 'intent://#Intent;package=com.phonepe.app;end'
+        : 'phonepe://';
+    }
+    if (platform === 'gpay') {
+      return isAndroid
+        ? 'intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end'
+        : 'gpay://';
+    }
+    if (platform === 'paytm') {
+      return isAndroid
+        ? 'intent://#Intent;package=net.one97.paytm;end'
+        : 'paytmmp://';
+    }
+    return 'upi://';
+  };
+
+  const handlePayNow = () => {
+    playHapticChime('success');
+    setHasLaunchedApp(true);
+    // Auto-copy UPI ID to clipboard so user has it ready in app
+    if (activeUpiId) {
+      navigator.clipboard.writeText(activeUpiId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
   const handleCopyUpi = () => {
     playHapticChime('click');
     navigator.clipboard.writeText(activeUpiId);
@@ -168,29 +134,6 @@ export default function QrModal({
     navigator.clipboard.writeText(recipient.phone);
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
-  };
-
-  // Fallback: Pay via Mobile Number
-  const handlePayViaPhone = () => {
-    if (!recipient.phone) return;
-    playHapticChime('success');
-    setHasLaunchedApp(true);
-    navigator.clipboard.writeText(recipient.phone);
-    setCopiedPhone(true);
-    setCopiedAction('phone');
-    setTimeout(() => setCopiedPhone(false), 3000);
-
-    const ua = navigator.userAgent || '';
-    const isAndroid = /android/i.test(ua);
-    if (selectedPlatform === 'phonepe') {
-      window.location.href = isAndroid ? 'intent://#Intent;package=com.phonepe.app;end' : 'phonepe://';
-    } else if (selectedPlatform === 'gpay') {
-      window.location.href = isAndroid ? 'intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end' : 'gpay://';
-    } else if (selectedPlatform === 'paytm') {
-      window.location.href = isAndroid ? 'intent://#Intent;package=net.one97.paytm;end' : 'paytmmp://';
-    } else {
-      window.location.href = 'upi://';
-    }
   };
 
   const handleSaveEditedUpi = () => {
@@ -214,7 +157,7 @@ export default function QrModal({
     setMarkPaidSuccess(true);
     setTimeout(() => {
       onClose();
-    }, 900);
+    }, 800);
   };
 
   const platforms = [
@@ -253,7 +196,7 @@ export default function QrModal({
   ];
 
   const currentPlatform = platforms.find((p) => p.id === selectedPlatform) || platforms[0];
-  const directAppUrl = getDirectAppUrl(selectedPlatform);
+  const appUrl = getAppLaunchUrl(selectedPlatform);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -261,17 +204,17 @@ export default function QrModal({
         className="ios-card modal-card"
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxWidth: '430px',
+          maxWidth: '420px',
           width: '95%',
           textAlign: 'center',
           maxHeight: '92vh',
           overflowY: 'auto',
-          padding: '20px 18px 24px'
+          padding: '18px 16px 20px'
         }}
       >
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--ios-text-primary)' }}>
+          <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--ios-text-primary)' }}>
             {recipient.title ? `Pay for ${recipient.title}` : `Pay ${recipient.name}`}
           </h2>
           <button
@@ -284,8 +227,8 @@ export default function QrModal({
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
-          {/* Recipient Profile Info */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+          {/* Recipient Profile Info & Amount */}
           <div
             className="ios-inset-box"
             style={{
@@ -293,38 +236,38 @@ export default function QrModal({
               alignItems: 'center',
               justifyContent: 'space-between',
               width: '100%',
-              padding: '10px 14px'
+              padding: '10px 12px'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FlatmateAvatar id={recipient.id || 'owner'} size={38} />
+              <FlatmateAvatar id={recipient.id || 'owner'} size={36} />
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '15.5px', fontWeight: 800, color: 'var(--ios-text-primary)' }}>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--ios-text-primary)' }}>
                   {recipient.name}
                 </div>
-                <div style={{ fontSize: '11.5px', color: 'var(--ios-text-secondary)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--ios-text-secondary)' }}>
                   {recipient.roomBadge ? `${recipient.roomBadge} • Flat B-202` : recipient.title || 'Flat B-202'}
                 </div>
               </div>
             </div>
 
-            {/* Amount pill / display */}
+            {/* Amount display */}
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--ios-text-tertiary)', fontWeight: 700 }}>
+              <div style={{ fontSize: '9.5px', textTransform: 'uppercase', color: 'var(--ios-text-tertiary)', fontWeight: 700 }}>
                 Amount
               </div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--ios-blue)' }}>
+              <div style={{ fontSize: '17px', fontWeight: 900, color: 'var(--ios-blue)' }}>
                 ₹{amount || recipient.defaultAmount || '0'}
               </div>
             </div>
           </div>
 
-          {/* Amount input row (if user wants to customize) */}
+          {/* Amount input (editable) */}
           <div
             className="ios-inset-box"
             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', width: '100%' }}
           >
-            <span style={{ fontSize: '12.5px', color: 'var(--ios-text-secondary)', fontWeight: 600 }}>Amount (₹):</span>
+            <span style={{ fontSize: '12px', color: 'var(--ios-text-secondary)', fontWeight: 600 }}>Amount (₹):</span>
             <input
               type="number"
               value={amount}
@@ -334,7 +277,7 @@ export default function QrModal({
                 background: 'transparent',
                 border: 'none',
                 color: 'var(--ios-text-primary)',
-                fontSize: '15px',
+                fontSize: '14.5px',
                 fontWeight: 800,
                 flex: 1,
                 outline: 'none'
@@ -342,20 +285,39 @@ export default function QrModal({
             />
           </div>
 
-          {/* Select Platform Heading */}
-          <div style={{ width: '100%', textAlign: 'left', marginTop: '2px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ios-text-secondary)', textTransform: 'uppercase' }}>
-              Select Payment App
-            </span>
+          {/* 1-LINE STEPS BANNER (Requested by user) */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              color: 'var(--ios-text-secondary)',
+              padding: '7px 10px',
+              background: 'rgba(120, 120, 128, 0.08)',
+              borderRadius: '10px',
+              width: '100%',
+              textAlign: 'center',
+              lineHeight: 1.2
+            }}
+          >
+            <span>1. Click Pay Now</span>
+            <span style={{ color: 'var(--ios-blue)', fontWeight: 900 }}>→</span>
+            <span>2. Pay on App</span>
+            <span style={{ color: 'var(--ios-blue)', fontWeight: 900 }}>→</span>
+            <span>3. Mark as Paid</span>
           </div>
 
-          {/* HORIZONTAL LINE OF OFFICIAL LOGO BUTTONS */}
+          {/* Horizontal Line of Official App Logos */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(4, 1fr)',
               gap: '6px',
-              width: '100%'
+              width: '100%',
+              marginTop: '2px'
             }}
           >
             {platforms.map((p) => {
@@ -373,29 +335,26 @@ export default function QrModal({
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '5px',
+                    gap: '4px',
                     padding: '8px 4px',
-                    borderRadius: '14px',
+                    borderRadius: '12px',
                     border: isSelected ? `2px solid ${p.activeBorder}` : '1px solid var(--ios-border)',
                     backgroundColor: isSelected ? p.activeBg : 'var(--ios-card-bg)',
                     cursor: 'pointer',
                     position: 'relative',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-                    transform: isSelected ? 'translateY(-1px)' : 'none',
+                    transition: 'all 0.15s ease',
                     outline: 'none'
                   }}
                   className="clickable"
                 >
-                  {/* Selected check badge */}
                   {isSelected && (
                     <div
                       style={{
                         position: 'absolute',
-                        top: '4px',
-                        right: '4px',
-                        width: '14px',
-                        height: '14px',
+                        top: '3px',
+                        right: '3px',
+                        width: '12px',
+                        height: '12px',
                         borderRadius: '50%',
                         backgroundColor: p.activeBorder,
                         display: 'flex',
@@ -403,22 +362,21 @@ export default function QrModal({
                         justifyContent: 'center'
                       }}
                     >
-                      <MaterialIcon name="check" size={10} color="#FFFFFF" />
+                      <MaterialIcon name="check" size={9} color="#FFFFFF" />
                     </div>
                   )}
 
-                  {/* Official SVG Logo in High-Contrast Badge */}
                   <div
                     style={{
                       width: '100%',
-                      height: '32px',
+                      height: '28px',
                       background: '#FFFFFF',
-                      borderRadius: '8px',
+                      borderRadius: '7px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: '3px 6px',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+                      padding: '2px 4px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
                     }}
                   >
                     <img
@@ -426,7 +384,7 @@ export default function QrModal({
                       alt={p.name}
                       style={{
                         maxWidth: '100%',
-                        maxHeight: '22px',
+                        maxHeight: '20px',
                         objectFit: 'contain'
                       }}
                     />
@@ -434,10 +392,10 @@ export default function QrModal({
 
                   <span
                     style={{
-                      fontSize: '10.5px',
+                      fontSize: '10px',
                       fontWeight: isSelected ? 800 : 600,
                       color: isSelected ? p.brandColor : 'var(--ios-text-secondary)',
-                      lineHeight: 1.1
+                      lineHeight: 1
                     }}
                   >
                     {p.name}
@@ -447,341 +405,185 @@ export default function QrModal({
             })}
           </div>
 
-          {/* PRIMARY 1-TAP ACTION: DIRECT LINK TO PHONEPE / GPAY / PAYTM CHECKOUT */}
+          {/* PRIMARY BUTTON: OPEN SELECTED APP FOR PAYMENT */}
           <a
-            href={directAppUrl}
-            onClick={() => {
-              playHapticChime('success');
-              setHasLaunchedApp(true);
-            }}
+            href={appUrl}
+            onClick={handlePayNow}
             style={{
               textDecoration: 'none',
               width: '100%',
               backgroundColor: currentPlatform.brandColor,
               color: '#FFFFFF',
               fontWeight: 800,
-              fontSize: '15.5px',
+              fontSize: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '13px 16px',
+              borderRadius: '14px',
+              boxShadow: `0 4px 14px ${currentPlatform.activeBg.replace('0.08', '0.4')}`,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              marginTop: '2px'
+            }}
+            className="clickable"
+            id="btn-pay-now"
+          >
+            <MaterialIcon name="open_in_new" size={18} color="#FFFFFF" />
+            <span>Pay Now on {currentPlatform.name}</span>
+          </a>
+
+          {/* Toast if UPI ID is copied */}
+          {copied && (
+            <div
+              style={{
+                width: '100%',
+                background: 'rgba(52, 199, 89, 0.12)',
+                border: '1px solid var(--ios-green)',
+                borderRadius: '10px',
+                padding: '6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                color: 'var(--ios-green)'
+              }}
+            >
+              <MaterialIcon name="check_circle" size={14} color="var(--ios-green)" />
+              <span>UPI ID copied to clipboard ({activeUpiId})</span>
+            </div>
+          )}
+
+          {/* CLEAN QR CODE CARD */}
+          <div
+            className="ios-inset-box"
+            style={{
+              width: '100%',
+              padding: '12px 14px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              padding: '14px 18px',
-              borderRadius: '16px',
-              boxShadow: `0 4px 14px ${currentPlatform.activeBg.replace('0.08', '0.45')}`,
-              cursor: 'pointer',
-              marginTop: '4px',
-              transition: 'all 0.2s ease'
-            }}
-            className="clickable"
-            id="btn-direct-1-tap-pay"
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MaterialIcon name="bolt" size={20} color="#FFFFFF" />
-              <span>1-Tap Direct Pay {amount ? `₹${amount}` : 'Now'} with {currentPlatform.name}</span>
-            </div>
-            <span style={{ fontSize: '11px', fontWeight: 600, opacity: 0.92, letterSpacing: '0.2px' }}>
-              ⚡ Pre-fills payee & ₹{amount || recipient.defaultAmount} • Opens PIN screen directly
-            </span>
-          </a>
-
-          {/* SECONDARY ACTION: UNIVERSAL UPI CHOOSER */}
-          <a
-            href={getDirectAppUrl('upi')}
-            onClick={() => {
-              playHapticChime('success');
-              setHasLaunchedApp(true);
-            }}
-            style={{
-              textDecoration: 'none',
-              width: '100%',
-              backgroundColor: 'rgba(0, 122, 255, 0.08)',
-              color: 'var(--ios-blue)',
-              fontWeight: 700,
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              padding: '10px 14px',
-              borderRadius: '14px',
-              border: '1.5px solid rgba(0, 122, 255, 0.25)',
-              cursor: 'pointer'
-            }}
-            className="clickable"
-          >
-            <MaterialIcon name="open_in_new" size={16} color="var(--ios-blue)" />
-            <span>Pay with Any UPI App (Universal Intent)</span>
-          </a>
-
-          {/* COLLAPSIBLE MANUAL & ALTERNATIVE OPTIONS ACCORDION */}
-          <div
-            style={{
-              width: '100%',
-              borderRadius: '14px',
-              border: '1px solid var(--ios-border)',
-              backgroundColor: 'var(--ios-card-bg)',
-              overflow: 'hidden',
-              marginTop: '4px'
+              gap: '8px'
             }}
           >
-            <button
-              type="button"
-              onClick={() => setShowManualOptions(!showManualOptions)}
+            <div
               style={{
-                width: '100%',
-                background: 'none',
-                border: 'none',
-                padding: '10px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 700,
-                color: 'var(--ios-text-secondary)'
+                padding: '8px',
+                background: '#ffffff',
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <MaterialIcon name="tune" size={16} color="var(--ios-text-tertiary)" />
-                <span>Manual Options (UPI ID, Phone, QR Code)</span>
-              </div>
-              <MaterialIcon name={showManualOptions ? 'expand_less' : 'expand_more'} size={18} />
-            </button>
+              <canvas ref={canvasRef} style={{ display: 'block', borderRadius: '6px' }} />
+            </div>
 
-            {showManualOptions && (
-              <div
-                style={{
-                  padding: '12px 14px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                  borderTop: '1px solid var(--ios-border)'
-                }}
-              >
-                {/* UPI ID Row (with Copy & Inline Edit) */}
-                <div
-                  className="ios-inset-box"
-                  style={{ width: '100%', display: 'flex', flexDirection: 'column', padding: '8px 12px' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <div style={{ textAlign: 'left', flex: 1, minWidth: 0, marginRight: '8px' }}>
-                      <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--ios-text-tertiary)', fontWeight: 700 }}>
-                        Recipient UPI ID (VPA)
-                      </div>
-                      {!isEditingUpi && (
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ios-blue)', marginTop: '2px', wordBreak: 'break-all' }}>
-                          {activeUpiId}
-                        </div>
-                      )}
-                    </div>
-
-                    {!isEditingUpi && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditUpiInput(activeUpiId);
-                            setIsEditingUpi(true);
-                          }}
-                          style={{ background: 'none', border: 'none', color: 'var(--ios-text-tertiary)', cursor: 'pointer', padding: '2px' }}
-                          title="Correct or change UPI handle"
-                        >
-                          <MaterialIcon name="edit" size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleCopyUpi}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '11.5px',
-                            color: copied ? 'var(--ios-green)' : 'var(--ios-text-secondary)',
-                            fontWeight: 700,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {copied ? (
-                            <>
-                              <MaterialIcon name="check" size={14} color="var(--ios-green)" /> Copied
-                            </>
-                          ) : (
-                            <>
-                              <MaterialIcon name="content_copy" size={14} /> Copy
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {isEditingUpi && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px', width: '100%' }}>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <input
-                          type="text"
-                          value={editUpiInput}
-                          onChange={(e) => setEditUpiInput(e.target.value)}
-                          placeholder="e.g. name@ybl or phone@okaxis"
-                          style={{
-                            background: '#fff',
-                            border: '1px solid var(--ios-blue)',
-                            borderRadius: '6px',
-                            padding: '4px 8px',
-                            fontSize: '12.5px',
-                            fontWeight: 700,
-                            flex: 1,
-                            outline: 'none'
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSaveEditedUpi}
-                          className="ios-btn ios-btn-primary ios-btn-sm"
-                          style={{ padding: '4px 10px', fontSize: '11px' }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingUpi(false)}
-                          className="ios-btn ios-btn-secondary ios-btn-sm"
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-
-                      {/* Quick handle suggestions */}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                        {['@ybl', '@oksbi', '@okhdfcbank', '@paytm', '@axl'].map((suffix) => (
-                          <button
-                            key={suffix}
-                            type="button"
-                            onClick={() => {
-                              const prefix = editUpiInput.split('@')[0] || (recipient.phone || '');
-                              setEditUpiInput(`${prefix}${suffix}`);
-                            }}
-                            style={{
-                              background: 'rgba(0,122,255,0.08)',
-                              border: '1px solid rgba(0,122,255,0.2)',
-                              borderRadius: '6px',
-                              padding: '2px 6px',
-                              fontSize: '10px',
-                              color: 'var(--ios-blue)',
-                              fontWeight: 600,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {suffix}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Manual Phone Number Payment */}
-                {recipient.phone && (
+            {/* Recipient UPI ID with inline Copy & Edit */}
+            <div style={{ width: '100%', textAlign: 'center' }}>
+              {!isEditingUpi ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ios-text-primary)' }}>
+                    {activeUpiId}
+                  </span>
                   <button
                     type="button"
-                    onClick={handlePayViaPhone}
+                    onClick={handleCopyUpi}
                     style={{
-                      width: '100%',
-                      backgroundColor: 'transparent',
-                      color: 'var(--ios-text-secondary)',
-                      fontWeight: 600,
-                      fontSize: '11.5px',
-                      display: 'flex',
+                      background: 'rgba(0, 122, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '3px 8px',
+                      color: copied ? 'var(--ios-green)' : 'var(--ios-blue)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      display: 'inline-flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      padding: '8px 12px',
-                      borderRadius: '12px',
-                      border: '1px dashed var(--ios-border)',
+                      gap: '4px',
                       cursor: 'pointer'
                     }}
-                    className="clickable"
                   >
-                    <MaterialIcon name="phone_iphone" size={14} />
-                    <span>Pay via Mobile Number ({recipient.displayPhone || recipient.phone})</span>
+                    <MaterialIcon name={copied ? 'check' : 'content_copy'} size={12} />
+                    <span>{copied ? 'Copied' : 'Copy'}</span>
                   </button>
-                )}
-
-                {/* Toast when phone number is copied */}
-                {copiedAction && (
-                  <div
-                    style={{
-                      width: '100%',
-                      background: 'rgba(52, 199, 89, 0.12)',
-                      border: '1.5px solid var(--ios-green)',
-                      borderRadius: '12px',
-                      padding: '8px 12px',
-                      textAlign: 'left'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: 'var(--ios-green)' }}>
-                      <MaterialIcon name="check_circle" size={16} color="var(--ios-green)" />
-                      <span>Copied ({recipient.phone})</span>
-                    </div>
-                    <p style={{ fontSize: '11px', color: 'var(--ios-text-primary)', margin: '3px 0 0 0', lineHeight: 1.35 }}>
-                      Paste in {currentPlatform.name} <strong>To Mobile Number</strong>.
-                    </p>
-                  </div>
-                )}
-
-                {/* Toggle Live Camera QR */}
-                <div style={{ textAlign: 'center', paddingTop: '4px' }}>
                   <button
                     type="button"
-                    onClick={() => setShowQrCode(!showQrCode)}
+                    onClick={() => {
+                      setEditUpiInput(activeUpiId);
+                      setIsEditingUpi(true);
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--ios-text-tertiary)',
+                      cursor: 'pointer',
+                      padding: '2px'
+                    }}
+                    title="Edit UPI ID"
+                  >
+                    <MaterialIcon name="edit" size={13} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: '4px' }}>
+                  <input
+                    type="text"
+                    value={editUpiInput}
+                    onChange={(e) => setEditUpiInput(e.target.value)}
+                    placeholder="name@ybl or phone@okaxis"
+                    style={{
+                      background: '#fff',
+                      border: '1px solid var(--ios-blue)',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      flex: 1,
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveEditedUpi}
+                    className="ios-btn ios-btn-primary ios-btn-sm"
+                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingUpi(false)}
+                    className="ios-btn ios-btn-secondary ios-btn-sm"
+                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {/* Subtle mobile number copy if recipient has phone */}
+              {recipient.phone && (
+                <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--ios-text-secondary)' }}>
+                  <span>Mobile: {recipient.displayPhone || recipient.phone}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyPhone}
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: 'var(--ios-blue)',
-                      fontSize: '11.5px',
+                      color: copiedPhone ? 'var(--ios-green)' : 'var(--ios-blue)',
+                      fontSize: '11px',
                       fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
+                      marginLeft: '6px',
+                      cursor: 'pointer'
                     }}
                   >
-                    <MaterialIcon name="qr_code_2" size={15} color="var(--ios-blue)" />
-                    <span>{showQrCode ? 'Hide Camera QR' : 'Show Camera QR Code'}</span>
+                    {copiedPhone ? 'Copied' : 'Copy'}
                   </button>
-
-                  {showQrCode && (
-                    <div
-                      style={{
-                        padding: '10px 0 6px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <div
-                        style={{
-                          padding: '10px',
-                          background: '#ffffff',
-                          borderRadius: '14px',
-                          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)'
-                        }}
-                      >
-                        <canvas ref={canvasRef} style={{ display: 'block', borderRadius: '8px' }} />
-                      </div>
-                      <span style={{ fontSize: '10px', color: 'var(--ios-text-tertiary)', lineHeight: 1.25 }}>
-                        Scan live with phone camera from a second screen (laptop/tablet).
-                      </span>
-                    </div>
-                  )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Return-from-app Auto-Payment Confirmation Prompt */}
@@ -791,19 +593,18 @@ export default function QrModal({
                 width: '100%',
                 background: 'var(--ios-blue-light, #EFF6FF)',
                 border: '1.5px solid var(--ios-blue)',
-                borderRadius: '16px',
-                padding: '12px',
+                borderRadius: '14px',
+                padding: '10px 12px',
                 textAlign: 'left',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(0, 122, 255, 0.12)'
+                gap: '8px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MaterialIcon name="task_alt" size={20} color="var(--ios-blue)" />
-                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ios-text-primary)' }}>
-                  Did you complete the payment in {currentPlatform.name}?
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MaterialIcon name="task_alt" size={18} color="var(--ios-blue)" />
+                <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ios-text-primary)' }}>
+                  Completed payment in {currentPlatform.name}?
                 </span>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -828,7 +629,7 @@ export default function QrModal({
             </div>
           )}
 
-          {/* Optional Direct 1-Tap Manual "Mark as Paid" if opened for a bill */}
+          {/* Bottom "Mark as Paid" action if opened for a bill */}
           {recipient?.billId && onMarkBillPaid && !showConfirmPaidPrompt && (
             <button
               type="button"
@@ -838,7 +639,8 @@ export default function QrModal({
               style={{
                 width: '100%',
                 marginTop: '2px',
-                fontSize: '12.5px',
+                padding: '11px',
+                fontSize: '13px',
                 fontWeight: 700,
                 color: 'var(--ios-green)',
                 background: 'rgba(52, 199, 89, 0.08)',
