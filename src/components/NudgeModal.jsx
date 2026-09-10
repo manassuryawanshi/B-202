@@ -103,15 +103,12 @@ export default function NudgeModal({
 
     const recipientLabel = getRecipientSummary();
 
-    sendBrowserNotification(`Notice from ${currentUser.name}`, {
-      body: customText
-    });
-
     onSendNudge({
       senderId: currentUser.id,
       senderName: currentUser.name,
       recipientIds: selectedRecipientIds,
       recipientName: recipientLabel,
+      isAll: isAllSelected,
       text: customText,
       category: selectedTemplate === 'bath' || selectedTemplate === 'balcony' ? 'chores' : 'bills'
     });

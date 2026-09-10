@@ -1,6 +1,7 @@
+import React, { useState } from 'react';
 import FlatmateAvatar from '../components/Avatars';
 import confetti from 'canvas-confetti';
-import { playHapticChime } from '../data/storage';
+import { playHapticChime, getDismissedBroadcastIds, markBroadcastDismissed, isNotificationForUser } from '../data/storage';
 import { StandardCleaningIcon, RupeeBillIcon } from '../components/AppIcons';
 import MaterialIcon from '../components/MaterialIcon';
 
@@ -18,20 +19,43 @@ export default function DashboardView({
   onMarkChoreCleaned,
   onMarkBillPaid
 }) {
+  const [dismissedIds, setDismissedIds] = useState(() =>
+    getDismissedBroadcastIds(currentUser?.id)
+  );
+
+  const handleDismiss = (e, broadcastId) => {
+    e.stopPropagation();
+    playHapticChime('pop');
+    markBroadcastDismissed(currentUser?.id, broadcastId);
+    setDismissedIds((prev) => new Set([...prev, broadcastId]));
+  };
+
   const broadcastList = [
-    ...(notifications || []).filter((n) => n.type === 'broadcast' || n.target === 'all' || n.toId === 'broadcast').map((n) => ({
-      id: n.id,
-      text: n.body || n.message || n.text,
-      senderName: n.fromName || 'Flatmate',
-      timestamp: n.createdAt || n.timestamp
-    })),
-    ...(messages || []).filter((m) => m.isBroadcast || m.text?.startsWith('📢')).map((m) => ({
-      id: m.id,
-      text: (m.text || '').replace(/^📢\s*/, ''),
-      senderName: m.authorName || m.senderName || 'Flatmate',
-      timestamp: m.timestamp
-    }))
-  ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+    ...(notifications || [])
+      .filter(
+        (n) =>
+          (n.type === 'broadcast' || n.category === 'broadcast' || n.type === 'nudge') &&
+          isNotificationForUser(n, currentUser)
+      )
+      .map((n) => ({
+        id: n.id,
+        text: n.body || n.message || n.text,
+        senderName: n.fromName || n.senderName || 'Flatmate',
+        timestamp: n.createdAt || n.timestamp,
+        isDirectNudge: Array.isArray(n.recipientIds) && !n.recipientIds.includes('all')
+      })),
+    ...(messages || [])
+      .filter((m) => m.isBroadcast || (typeof m.text === 'string' && m.text.startsWith('📢')))
+      .map((m) => ({
+        id: m.id,
+        text: (m.text || '').replace(/^📢\s*/, ''),
+        senderName: m.authorName || m.senderName || 'Flatmate',
+        timestamp: m.timestamp,
+        isDirectNudge: false
+      }))
+  ]
+    .filter((b) => !dismissedIds.has(b.id))
+    .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
   const latestBroadcast = broadcastList[0];
 
@@ -101,29 +125,49 @@ export default function DashboardView({
         </div>
       </div>
 
-      {/* Active Flat Broadcast Banner */}
+      {/* Active Flat Broadcast / Nudge Banner */}
       {latestBroadcast && (
         <div
           className="apple-banner"
           style={{
-            background: 'linear-gradient(135deg, #FF6B00 0%, #EA580C 100%)',
+            background: 'linear-gradient(135deg, #312E81 0%, #4338CA 45%, #6366F1 100%)',
             color: '#FFFFFF',
-            padding: '14px 18px',
+            padding: '16px 18px',
             cursor: 'pointer',
-            boxShadow: '0 8px 24px rgba(234, 88, 12, 0.28)',
+            boxShadow: '0 10px 28px rgba(67, 56, 202, 0.32)',
+            border: '1px solid rgba(255, 255, 255, 0.22)',
+            borderRadius: '20px',
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            position: 'relative'
+            gap: '14px',
+            position: 'relative',
+            overflow: 'hidden'
           }}
           onClick={() => onNavigateTab('messages')}
         >
+          {/* Subtle glowing background accent */}
           <div
             style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
-              background: 'rgba(255, 255, 255, 0.22)',
+              position: 'absolute',
+              top: '-20px',
+              right: '25px',
+              width: '90px',
+              height: '90px',
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(196, 181, 253, 0.35) 0%, rgba(99, 102, 241, 0) 70%)',
+              pointerEvents: 'none'
+            }}
+          />
+
+          {/* Distinct Megaphone / Bell Pill */}
+          <div
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '14px',
+              background: 'rgba(255, 255, 255, 0.18)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -131,25 +175,69 @@ export default function DashboardView({
               fontSize: '22px'
             }}
           >
-            📢
+            {latestBroadcast.isDirectNudge ? '🔔' : '📢'}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+
+          <div style={{ flex: 1, minWidth: 0, paddingRight: '26px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase', background: 'rgba(0, 0, 0, 0.22)', padding: '2px 7px', borderRadius: '6px' }}>
-                FLAT BROADCAST
+              <span
+                style={{
+                  fontSize: '9.5px',
+                  fontWeight: 800,
+                  letterSpacing: '0.6px',
+                  textTransform: 'uppercase',
+                  background: 'rgba(255, 255, 255, 0.22)',
+                  padding: '2px 7px',
+                  borderRadius: '6px'
+                }}
+              >
+                {latestBroadcast.isDirectNudge ? 'DIRECT NUDGE' : 'FLAT BROADCAST'}
               </span>
-              <span style={{ fontSize: '11.5px', opacity: 0.92, fontWeight: 600 }}>
+              <span style={{ fontSize: '11px', opacity: 0.9, fontWeight: 600 }}>
                 from {latestBroadcast.senderName}
               </span>
             </div>
-            <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '3px', lineHeight: 1.3, wordBreak: 'break-word' }}>
+            <div
+              style={{
+                fontSize: '13.5px',
+                fontWeight: 700,
+                marginTop: '4px',
+                lineHeight: 1.35,
+                wordBreak: 'break-word',
+                textShadow: '0 1px 2px rgba(0,0,0,0.15)'
+              }}
+            >
               {latestBroadcast.text}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.88, fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
-            <span>Chat</span>
-            <MaterialIcon name="chevron_right" size={18} />
-          </div>
+
+          {/* Top Right Dismiss Button (✕) */}
+          <button
+            type="button"
+            title="Dismiss from homescreen (remains in notification panel)"
+            onClick={(e) => handleDismiss(e, latestBroadcast.id)}
+            style={{
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              width: '26px',
+              height: '26px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              zIndex: 3,
+              transition: 'background 0.2s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.35)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)')}
+          >
+            <MaterialIcon name="close" size={15} color="#FFFFFF" />
+          </button>
         </div>
       )}
 

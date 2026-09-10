@@ -302,3 +302,116 @@ export const sendBrowserNotification = async (title, options = {}) => {
   }
   return false;
 };
+
+// --- Personalized Notification Management & Deduplication ---
+
+const DELIVERED_NOTIFS_KEY = 'b202_delivered_notification_ids';
+const DELETED_NOTIFS_KEY_PREFIX = 'b202_deleted_notifs_';
+const DISMISSED_BROADCASTS_KEY_PREFIX = 'b202_dismissed_broadcasts_';
+
+export const getDeliveredNotificationIds = () => {
+  try {
+    const raw = localStorage.getItem(DELIVERED_NOTIFS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const markNotificationDelivered = (id) => {
+  if (!id) return;
+  try {
+    const ids = getDeliveredNotificationIds();
+    ids.add(id);
+    const arr = Array.from(ids).slice(-500);
+    localStorage.setItem(DELIVERED_NOTIFS_KEY, JSON.stringify(arr));
+  } catch {}
+};
+
+export const getStoredDeletedNotifs = (userId) => {
+  try {
+    const key = userId ? `${DELETED_NOTIFS_KEY_PREFIX}${userId}` : 'b202_deleted_notifs_global';
+    const raw = localStorage.getItem(key);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const saveStoredDeletedNotif = (userId, notifId) => {
+  if (!notifId) return;
+  try {
+    const ids = getStoredDeletedNotifs(userId);
+    ids.add(notifId);
+    const arr = Array.from(ids).slice(-500);
+    const key = userId ? `${DELETED_NOTIFS_KEY_PREFIX}${userId}` : 'b202_deleted_notifs_global';
+    localStorage.setItem(key, JSON.stringify(arr));
+  } catch {}
+};
+
+export const getDismissedBroadcastIds = (userId) => {
+  try {
+    const key = userId ? `${DISMISSED_BROADCASTS_KEY_PREFIX}${userId}` : 'b202_dismissed_broadcasts_global';
+    const raw = localStorage.getItem(key);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const markBroadcastDismissed = (userId, broadcastId) => {
+  if (!broadcastId) return;
+  try {
+    const ids = getDismissedBroadcastIds(userId);
+    ids.add(broadcastId);
+    const arr = Array.from(ids).slice(-200);
+    const key = userId ? `${DISMISSED_BROADCASTS_KEY_PREFIX}${userId}` : 'b202_dismissed_broadcasts_global';
+    localStorage.setItem(key, JSON.stringify(arr));
+  } catch {}
+};
+
+// Check if a notification is strictly intended for currentUser
+export const isNotificationForUser = (notif, currentUser) => {
+  if (!notif || !currentUser) return false;
+
+  // Don't notify the sender of their own actions
+  if (notif.fromId === currentUser.id || notif.senderId === currentUser.id) {
+    // Note: in notification list, sender can still see it if they want, but don't notify
+    // If notif is explicitly targeted to specific recipients:
+    if (Array.isArray(notif.recipientIds) && !notif.recipientIds.includes('all') && !notif.recipientIds.includes(currentUser.id)) {
+      return false;
+    }
+  }
+
+  // 1. Explicit array of recipient member IDs
+  if (Array.isArray(notif.recipientIds) && notif.recipientIds.length > 0) {
+    if (notif.recipientIds.includes('all')) return true;
+    return notif.recipientIds.includes(currentUser.id);
+  }
+
+  // 2. Target / toId matching
+  if (notif.toId === 'all' || notif.target === 'all' || notif.toId === 'broadcast' || notif.target === 'broadcast') {
+    return true;
+  }
+  if (notif.targetId && notif.targetId !== 'all') {
+    return notif.targetId === currentUser.id;
+  }
+  if (notif.toId) {
+    return notif.toId === currentUser.id;
+  }
+  if (notif.target) {
+    return notif.target === currentUser.id;
+  }
+
+  // 3. Recipient name matching (e.g. "Rohan")
+  if (notif.recipientName) {
+    if (notif.recipientName === 'All Flatmates' || notif.recipientName === 'everyone') return true;
+    const lowerName = currentUser.name.toLowerCase();
+    const lowerId = currentUser.id.toLowerCase();
+    const targetLower = notif.recipientName.toLowerCase();
+    return targetLower.includes(lowerName) || targetLower.includes(lowerId);
+  }
+
+  // 4. Default broadcasts
+  return notif.type === 'broadcast';
+};

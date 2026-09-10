@@ -155,6 +155,12 @@ export function createB202ApiMiddleware() {
           }
         });
 
+        // Ensure deleted notifications stay deleted
+        if (db.deletedNotificationIds && db.deletedNotificationIds.length > 0) {
+          const delSet = new Set(db.deletedNotificationIds);
+          db.notifications = (db.notifications || []).filter((n) => !delSet.has(n.id));
+        }
+
         if (dbChanged) saveDatabase(db);
 
         const safeMembers = db.members.map(({ pin, ...rest }) => rest);
@@ -407,9 +413,17 @@ export function createB202ApiMiddleware() {
         return sendJson(res, 200, { success: true, ...db, members: safeMembers });
       }
 
-      // 9. POST /api/notifications/clear - Clear all notifications (persisted)
+      // 9. POST /api/notifications/clear - Clear notifications (persisted)
       if (req.method === 'POST' && url === '/api/notifications/clear') {
-        db.notifications = [];
+        const { notificationIds } = await readJsonBody(req);
+        if (Array.isArray(notificationIds) && notificationIds.length > 0) {
+          db.deletedNotificationIds = [...new Set([...(db.deletedNotificationIds || []), ...notificationIds])];
+          db.notifications = (db.notifications || []).filter((n) => !notificationIds.includes(n.id));
+        } else {
+          const allIds = (db.notifications || []).map((n) => n.id);
+          db.deletedNotificationIds = [...new Set([...(db.deletedNotificationIds || []), ...allIds])];
+          db.notifications = [];
+        }
         saveDatabase(db);
         const safeMembers = db.members.map(({ pin, ...rest }) => rest);
         return sendJson(res, 200, { success: true, ...db, members: safeMembers });
@@ -418,6 +432,7 @@ export function createB202ApiMiddleware() {
       // 10. POST /api/notifications/delete - Delete individual notification (persisted)
       if (req.method === 'POST' && url === '/api/notifications/delete') {
         const { notificationId } = await readJsonBody(req);
+        db.deletedNotificationIds = [...new Set([...(db.deletedNotificationIds || []), notificationId])];
         db.notifications = (db.notifications || []).filter((n) => n.id !== notificationId);
         saveDatabase(db);
         const safeMembers = db.members.map(({ pin, ...rest }) => rest);
@@ -629,27 +644,39 @@ export function createB202ApiMiddleware() {
         return sendJson(res, 200, { success: true, ...db, members: safeMembers });
       }
 
-      // 11. POST /api/nudge - Broadcast notification
+      // 11. POST /api/nudge - Targeted Nudge & Broadcast notification
       if (req.method === 'POST' && url === '/api/nudge') {
-        const { senderId, senderName, category, text, recipientName } = await readJsonBody(req);
-        const newMsg = {
-          id: `msg-${Date.now()}`,
-          senderId,
-          senderName,
-          category: category || 'urgent',
-          text: recipientName && recipientName !== 'All Flatmates' ? `[To: ${recipientName}] ${text}` : text,
-          timestamp: new Date().toISOString(),
-          updatedAt: Date.now(),
-          reactions: {}
-        };
-        db.messages.push(newMsg);
+        const { senderId, senderName, category, text, recipientIds, recipientName, isAll } = await readJsonBody(req);
+        const isToAll = isAll || !recipientIds || recipientIds.includes('all') || recipientName === 'All Flatmates';
+
+        // ONLY post to group chat if it is a general broadcast to ALL flatmates
+        if (isToAll) {
+          const newMsg = {
+            id: `msg-${Date.now()}`,
+            senderId,
+            senderName,
+            category: category || 'urgent',
+            text: `📢 ${text}`,
+            timestamp: new Date().toISOString(),
+            updatedAt: Date.now(),
+            reactions: {},
+            isBroadcast: true
+          };
+          db.messages.push(newMsg);
+        }
 
         const newNotif = {
-          id: `notif-${Date.now()}`,
-          title: recipientName && recipientName !== 'All Flatmates' ? `Nudge to ${recipientName}` : `Nudge from ${senderName}`,
+          id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          title: isToAll ? `📢 Broadcast from ${senderName}` : `Nudge from ${senderName}`,
           body: text,
+          message: text,
           time: 'Just now',
-          type: category === 'chores' ? 'chore' : 'bill',
+          type: 'broadcast',
+          senderId,
+          senderName,
+          recipientIds: isToAll ? ['all'] : (Array.isArray(recipientIds) ? recipientIds : [recipientIds]),
+          recipientName: recipientName || (isToAll ? 'All Flatmates' : 'Flatmate'),
+          timestamp: new Date().toISOString(),
           unread: true
         };
         db.notifications.unshift(newNotif);

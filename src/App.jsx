@@ -20,7 +20,12 @@ import {
   saveToStorage,
   STORAGE_KEYS,
   sendBrowserNotification,
-  playHapticChime
+  playHapticChime,
+  getDeliveredNotificationIds,
+  markNotificationDelivered,
+  getStoredDeletedNotifs,
+  saveStoredDeletedNotif,
+  isNotificationForUser
 } from './data/storage';
 import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
 
@@ -60,6 +65,11 @@ export default function App() {
     } catch {}
     return null;
   });
+
+  const currentUserRef = React.useRef(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   // Load and apply theme specific to active currentUser
   useEffect(() => {
@@ -290,14 +300,63 @@ export default function App() {
 
     const mergedBills = Array.from(finalBillsMap.values());
 
-    // Check if new notifications arrived from other flatmates to trigger native push alert on Android/iOS
-    if (incoming.notifications && prev.notifications) {
+    // 6. Merge notifications with persistent deletion tracking & deduplicated alerts
+    const activeUser = currentUserRef.current;
+    const userDeletedNotifIds = getStoredDeletedNotifs(activeUser?.id);
+    const deletedNotifIds = new Set([
+      ...(prev.deletedNotificationIds || []),
+      ...(incoming.deletedNotificationIds || []),
+      ...userDeletedNotifIds
+    ]);
+
+    const notifMap = new Map();
+    (prev.notifications || []).forEach((n) => {
+      if (!deletedNotifIds.has(n.id)) notifMap.set(n.id, n);
+    });
+    (incoming.notifications || []).forEach((n) => {
+      if (!deletedNotifIds.has(n.id)) {
+        if (!notifMap.has(n.id)) {
+          notifMap.set(n.id, n);
+        } else {
+          const localN = notifMap.get(n.id);
+          notifMap.set(n.id, {
+            ...n,
+            ...localN,
+            unread: localN.unread === false ? false : n.unread
+          });
+        }
+      }
+    });
+
+    const mergedNotifications = Array.from(notifMap.values()).sort(
+      (a, b) => new Date(b.timestamp || b.time || 0) - new Date(a.timestamp || a.time || 0)
+    );
+
+    // Trigger native push alert ONLY for brand-new notifications targeted to activeUser
+    // that have NOT been delivered yet on this device.
+    if (activeUser && incoming.notifications && prev.notifications) {
+      const deliveredIds = getDeliveredNotificationIds();
       const prevIds = new Set((prev.notifications || []).map((n) => n.id));
-      const brandNew = incoming.notifications.filter((n) => !prevIds.has(n.id) && n.unread);
-      if (brandNew.length > 0) {
-        brandNew.forEach((n) => {
-          sendBrowserNotification(n.title, { body: n.body || n.message });
+
+      if (prev.notifications.length > 0) {
+        const freshForMe = incoming.notifications.filter((n) =>
+          !prevIds.has(n.id) &&
+          !deletedNotifIds.has(n.id) &&
+          !deliveredIds.has(n.id) &&
+          n.unread &&
+          isNotificationForUser(n, activeUser)
+        );
+
+        freshForMe.forEach((n) => {
+          markNotificationDelivered(n.id);
+          sendBrowserNotification(n.title || 'B-202 Alert', {
+            body: n.body || n.message || 'You have an update in Flat B-202',
+            tag: n.id
+          });
         });
+      } else {
+        // Cold start / first load: mark all existing as delivered so they never re-fire
+        (incoming.notifications || []).forEach((n) => markNotificationDelivered(n.id));
       }
     }
 
@@ -307,7 +366,9 @@ export default function App() {
       members: mergedMembers,
       messages: mergedMessages,
       bills: mergedBills,
-      deletedBillIds: Array.from(deletedIds)
+      notifications: mergedNotifications,
+      deletedBillIds: Array.from(deletedIds),
+      deletedNotificationIds: Array.from(deletedNotifIds)
     };
   }, []);
 
@@ -897,37 +958,65 @@ export default function App() {
     } catch {}
   };
 
-  // Send Nudge Broadcast
+  // User's personalized notifications (filtered strictly for currentUser, minus any deleted notifications)
+  const userNotifications = useMemo(() => {
+    if (!currentUser) return [];
+    const userDeleted = getStoredDeletedNotifs(currentUser.id);
+    return (data.notifications || []).filter((n) => {
+      if (userDeleted.has(n.id)) return false;
+      return isNotificationForUser(n, currentUser);
+    });
+  }, [data.notifications, currentUser]);
+
+  // Send Nudge Broadcast or 1-to-1 Direct Nudge
   const handleSendNudge = async (payload) => {
     const textContent = payload.text || payload.message || '';
     const recipient = payload.recipientName || 'everyone';
-    const nudgeMsg = {
-      id: `msg-${Date.now()}`,
-      senderId: currentUser?.id || 'manas',
-      senderName: currentUser?.name || 'Manas',
-      category: payload.category || 'urgent',
-      text: `📢 Announcement for ${recipient}: ${textContent}`,
-      timestamp: new Date().toISOString(),
-      reactions: { fire: 1 },
-      isBroadcast: true
-    };
+    const isToAll =
+      payload.isAll ||
+      !payload.recipientIds ||
+      payload.recipientIds.includes('all') ||
+      recipient === 'All Flatmates';
 
+    // Only post to group chat if it is a general broadcast to ALL flatmates!
+    // Individual nudges (e.g. to Rohan) should NOT appear on group chat.
+    const nudgeMsg = isToAll
+      ? {
+          id: `msg-${Date.now()}`,
+          senderId: currentUser?.id || 'manas',
+          senderName: currentUser?.name || 'Manas',
+          category: payload.category || 'urgent',
+          text: `📢 Announcement for ${recipient}: ${textContent}`,
+          timestamp: new Date().toISOString(),
+          reactions: { fire: 1 },
+          isBroadcast: true
+        }
+      : null;
+
+    const notifId = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     const newNotif = {
-      id: `notif-${Date.now()}`,
-      title: payload.recipientName && payload.recipientName !== 'All Flatmates'
-        ? `Nudge to ${payload.recipientName}`
-        : `📢 Broadcast from ${currentUser?.name || 'Flatmate'}`,
+      id: notifId,
+      title: isToAll
+        ? `📢 Broadcast from ${currentUser?.name || 'Flatmate'}`
+        : `Nudge from ${currentUser?.name || 'Flatmate'}`,
       body: textContent,
       message: textContent,
       time: 'Just now',
       type: 'broadcast',
+      senderId: currentUser?.id,
+      senderName: currentUser?.name,
+      recipientIds: isToAll ? ['all'] : payload.recipientIds,
+      recipientName: payload.recipientName,
       timestamp: new Date().toISOString(),
       unread: true
     };
 
+    // Mark as delivered on this sender device so sender never gets an alert for their own nudge
+    markNotificationDelivered(notifId);
+
     updateDataAndSync((prev) => ({
       ...prev,
-      messages: [...(prev.messages || []), nudgeMsg],
+      messages: nudgeMsg ? [...(prev.messages || []), nudgeMsg] : (prev.messages || []),
       notifications: [
         newNotif,
         ...(prev.notifications || [])
@@ -940,6 +1029,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...payload,
+          isAll: isToAll,
           text: textContent
         })
       });
@@ -947,36 +1037,63 @@ export default function App() {
   };
 
   const handleMarkAllNotificationsRead = async () => {
-    setData((prev) => ({
+    const myIds = new Set(userNotifications.map((n) => n.id));
+    updateDataAndSync((prev) => ({
       ...prev,
-      notifications: prev.notifications.map((n) => ({ ...n, unread: false }))
+      notifications: (prev.notifications || []).map((n) =>
+        myIds.has(n.id) ? { ...n, unread: false } : n
+      )
     }));
     try {
-      await fetch('/api/notifications/read-all', { method: 'POST' });
+      await fetch('/api/notifications/read-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: Array.from(myIds), userId: currentUser?.id })
+      });
     } catch (err) {
       console.error('Error marking all notifications read:', err);
     }
   };
 
   const handleClearNotifications = async () => {
-    setData((prev) => ({ ...prev, notifications: [] }));
+    const idsToClear = userNotifications.map((n) => n.id);
+    idsToClear.forEach((id) => saveStoredDeletedNotif(currentUser?.id, id));
+
+    updateDataAndSync((prev) => ({
+      ...prev,
+      notifications: (prev.notifications || []).filter((n) => !idsToClear.includes(n.id)),
+      deletedNotificationIds: [
+        ...new Set([...(prev.deletedNotificationIds || []), ...idsToClear])
+      ]
+    }));
+
     try {
-      await fetch('/api/notifications/clear', { method: 'POST' });
+      await fetch('/api/notifications/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: idsToClear, userId: currentUser?.id })
+      });
     } catch (err) {
       console.error('Error clearing notifications:', err);
     }
   };
 
   const handleDeleteNotification = async (notificationId) => {
-    setData((prev) => ({
+    saveStoredDeletedNotif(currentUser?.id, notificationId);
+
+    updateDataAndSync((prev) => ({
       ...prev,
-      notifications: prev.notifications.filter((n) => n.id !== notificationId)
+      notifications: (prev.notifications || []).filter((n) => n.id !== notificationId),
+      deletedNotificationIds: [
+        ...new Set([...(prev.deletedNotificationIds || []), notificationId])
+      ]
     }));
+
     try {
       await fetch('/api/notifications/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationId })
+        body: JSON.stringify({ notificationId, userId: currentUser?.id })
       });
     } catch (err) {
       console.error('Error deleting notification:', err);
@@ -984,9 +1101,9 @@ export default function App() {
   };
 
   const handleMarkNotificationRead = async (notificationId) => {
-    setData((prev) => ({
+    updateDataAndSync((prev) => ({
       ...prev,
-      notifications: prev.notifications.map((n) =>
+      notifications: (prev.notifications || []).map((n) =>
         n.id === notificationId ? { ...n, unread: false } : n
       )
     }));
@@ -994,7 +1111,7 @@ export default function App() {
       await fetch('/api/notifications/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationId })
+        body: JSON.stringify({ notificationId, userId: currentUser?.id })
       });
     } catch (err) {
       console.error('Error marking notification read:', err);
@@ -1028,7 +1145,7 @@ export default function App() {
       {activeTab !== 'messages' && (
         <Navbar
           currentUser={currentUser}
-          notifications={data.notifications}
+          notifications={userNotifications}
           onOpenNotifications={() => setIsNotifOpen(true)}
           onOpenNudgeModal={() => setIsNudgeOpen(true)}
           onOpenProfile={() => setIsProfileOpen(true)}
@@ -1048,7 +1165,7 @@ export default function App() {
             bills={data.bills}
             choreHistory={data.choreHistory}
             messages={data.messages}
-            notifications={data.notifications}
+            notifications={userNotifications}
             onNavigateTab={(tab) => handleTabChange(tab)}
             onOpenNudgeModal={() => setIsNudgeOpen(true)}
             onOpenQrModal={(rec) => setQrRecipient(rec)}
@@ -1143,7 +1260,7 @@ export default function App() {
       <NotificationModal
         isOpen={isNotifOpen}
         onClose={() => setIsNotifOpen(false)}
-        notifications={data.notifications}
+        notifications={userNotifications}
         onMarkAllRead={handleMarkAllNotificationsRead}
         onClearNotifications={handleClearNotifications}
         onDeleteNotification={handleDeleteNotification}
